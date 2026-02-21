@@ -27,6 +27,7 @@ video-sumarize/
 │   ├── train.py             # Train model
 │   ├── run_eval.py          # Evaluate on test set
 │   └── run_inference.py     # Static/dynamic summary from checkpoint
+├── app.py                    # Streamlit demo (upload video → summary video)
 ├── checkpoints/              # Saved model checkpoints
 ├── logs/                     # Training logs
 ├── output/                   # Inference outputs
@@ -79,6 +80,17 @@ Pipeline: cài đặt → tải SumMe+TVSum (Kaggle) → chuẩn bị labels + c
      `python -m scripts.run_inference --checkpoint checkpoints/best.pt --video-id VID --video-path data/raw/VID.mp4 --static --output-dir output`
    - Dynamic skim:  
      `python -m scripts.run_inference ... --dynamic`
+
+## Streamlit demo
+
+Upload a video and download a summarized skim:
+
+```bash
+pip install streamlit
+streamlit run app.py
+```
+
+In the sidebar: choose checkpoint path and **feature backbone** to match your training (1024 for .h5/GoogLeNet, 2048 for ResNet). Adjust summary ratio and output FPS if needed.
 
 ## Config
 

@@ -45,6 +45,11 @@ class CNNFeatureExtractor(nn.Module):
             m = models.resnet18(weights="DEFAULT" if pretrained else None)
             self._features = nn.Sequential(*list(m.children())[:-1])
             self._out_dim = 512
+        elif backbone == "googlenet":
+            m = models.googlenet(weights="DEFAULT" if pretrained else None, transform_input=True)
+            m.fc = nn.Identity()
+            self._features = m
+            self._out_dim = 1024
         elif HAS_TIMM and backbone:
             self._features = timm.create_model(backbone, pretrained=pretrained, num_classes=0)
             self._out_dim = self._features.num_features
@@ -66,9 +71,13 @@ class CNNFeatureExtractor(nn.Module):
             B, T, C, H, W = x.shape
             x = x.view(B * T, C, H, W)
             out = self._features(x)
+            if isinstance(out, tuple):
+                out = out[0]
             out = out.view(B, T, -1)
         else:
             out = self._features(x)
+            if isinstance(out, tuple):
+                out = out[0]
             out = out.view(out.size(0), -1)
         return out
 

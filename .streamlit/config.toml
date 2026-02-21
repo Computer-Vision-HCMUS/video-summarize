@@ -1,0 +1,3 @@
+# Avoid Streamlit watcher scanning torch (causes RuntimeError with PyTorch __path__)
+[server]
+fileWatcherType = "none"
