@@ -37,7 +37,7 @@ if input_mode == "Upload video":
         st.stop()
     # Will write to temp file when user clicks Generate
 else:
-    youtube_url = st.text_input("YouTube URL", placeholder="https://www.youtube.com/watch?v=...", help="Requires yt-dlp: pip install yt-dlp")
+    youtube_url = st.text_input("YouTube URL", placeholder="https://www.youtube.com/watch?v=...", help="Uses yt-dlp — install in the same env as Streamlit: pip install yt-dlp")
     if not youtube_url or ("youtube.com" not in youtube_url and "youtu.be" not in youtube_url):
         st.info("Paste a YouTube link to start.")
         st.stop()
@@ -47,6 +47,9 @@ def download_youtube(url: str, out_dir: Path) -> tuple[Path | None, str | None]:
     """Download YouTube video to out_dir. Returns (path_to_video, error_message). Error is None on success."""
     try:
         import yt_dlp
+    except ImportError as e:
+        return None, f"yt-dlp not found in this Python env: {e}. Install: pip install yt-dlp (then restart Streamlit)."
+    try:
         out_dir.mkdir(parents=True, exist_ok=True)
         opts = {
             "format": "best[ext=mp4]/best",
@@ -60,10 +63,11 @@ def download_youtube(url: str, out_dir: Path) -> tuple[Path | None, str | None]:
             if f.suffix.lower() in (".mp4", ".mkv", ".webm", ".avi"):
                 return f, None
         return None, "Download failed (no video file)."
-    except ImportError:
-        return None, "Install yt-dlp: pip install yt-dlp"
     except Exception as e:
-        return None, str(e)
+        err = str(e)
+        if "not available" in err.lower() or "private" in err.lower() or "unavailable" in err.lower():
+            err = "Video không khả dụng (private, đã xóa hoặc giới hạn vùng). Thử link khác hoặc mở link trong trình duyệt để kiểm tra.\n" + err
+        return None, err
 
 
 ckpt = Path(checkpoint_path)

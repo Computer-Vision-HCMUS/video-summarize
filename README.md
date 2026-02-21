@@ -83,14 +83,14 @@ Pipeline: cài đặt → tải SumMe+TVSum (Kaggle) → chuẩn bị labels + c
 
 ## Streamlit demo
 
-Upload a video and download a summarized skim:
+Upload a video or paste a YouTube URL, then download a summarized skim:
 
 ```bash
-pip install streamlit
-streamlit run app.py
+pip install streamlit yt-dlp
+python -m streamlit run app.py
 ```
 
-In the sidebar: choose checkpoint path and **feature backbone** to match your training (1024 for .h5/GoogLeNet, 2048 for ResNet). Adjust summary ratio and output FPS if needed.
+Use **`python -m streamlit run app.py`** so Streamlit runs in the same Python where you installed yt-dlp (avoids "Install yt-dlp" when it’s already installed in another env). In the sidebar: choose checkpoint path and **feature backbone** (1024 for .h5, 2048 for ResNet). Adjust summary ratio and output FPS if needed.
 
 ## Config
 

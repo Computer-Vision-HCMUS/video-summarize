@@ -23,3 +23,5 @@ echo "=== Done ==="
 
 # Windows PowerShell: use run_all.ps1
 #   .\run_all.ps1
+
+python -m streamlit run app.py
