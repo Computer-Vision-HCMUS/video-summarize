@@ -4,12 +4,25 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from src.config import load_config
 from src.data import FeatureLoader, LabelLoader, create_dataloaders
 from src.utils import set_seed, setup_logging
 from src.training import Trainer
+
+
+def _feature_dim_from_meta(features_root: Path, fallback: int) -> int:
+    """Use data/features/_meta.json (from eccv16 .h5) if present."""
+    meta = Path(features_root) / "_meta.json"
+    if meta.exists():
+        try:
+            d = json.loads(meta.read_text(encoding="utf-8"))
+            return int(d.get("feature_dim", fallback))
+        except Exception:
+            pass
+    return fallback
 
 
 def _collect_video_ids(data_root: Path, features_root: Path, labels_root: Path) -> list[str]:
@@ -32,9 +45,10 @@ def main() -> None:
     setup_logging(log_file=Path(log_dir) / "train.log")
 
     paths = config.paths
+    feature_dim = _feature_dim_from_meta(paths.features_root, config.features.feature_dim)
     feature_loader = FeatureLoader(
         paths.features_root,
-        feature_dim=config.features.feature_dim,
+        feature_dim=feature_dim,
         padding_value=config.data.padding_value,
     )
     label_loader = LabelLoader(paths.labels_root)
@@ -66,6 +80,7 @@ def main() -> None:
         val_loader=val_loader,
         checkpoint_dir=paths.checkpoints_dir,
         resume_path=args.resume,
+        model_input_dim=feature_dim,
     )
     print("Best epoch:", result["best_epoch"], "Best val loss:", result["best_val_loss"])
 

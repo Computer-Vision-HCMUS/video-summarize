@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """
-Download SumMe and TVSum, export labels to data/labels, copy videos to data/raw.
+Download SumMe and TVSum — mọi thứ cài trong thư mục project (data/..., đã gitignore).
+
+- Zip + bản giải nén: data/datasets/
+- Labels JSON: data/labels/
+- Video copy để train: data/raw/
 
 Cách 1 - Tự động (cần Kaggle API):
   pip install kaggle
   Đặt kaggle.json vào ~/.kaggle/ (từ Kaggle Account -> Create New API Token)
   python -m scripts.download_datasets --all
 
-Cách 2 - Tải tay từ Kaggle rồi giải nén:
+Cách 2 - Tải tay từ Kaggle rồi giải nén vào thư mục project:
   - SumMe+TVSum: https://www.kaggle.com/datasets/georgelifinrell/summe-video-summarization
-  - Giải nén vào data/datasets/summe_tvsum/
+  - Giải nén vào <project>/data/datasets/summe_tvsum/
   python -m scripts.download_datasets --from-dir data/datasets/summe_tvsum
 """
 
@@ -26,17 +30,22 @@ from src.data.summe_tvsum import (
     load_tvsum_mat,
     export_labels_to_json,
 )
+from src.data.h5_summe_tvsum import prepare_from_h5
 from src.utils import setup_logging
 
 setup_logging()
 LOG = __import__("logging").getLogger(__name__)
 
+# Tất cả dataset nằm trong thư mục project (gitignore)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DATASETS_DIR = PROJECT_ROOT / "data" / "datasets"
+LABELS_DIR = PROJECT_ROOT / "data" / "labels"
+FEATURES_DIR = PROJECT_ROOT / "data" / "features"
+RAW_VIDEOS_DIR = PROJECT_ROOT / "data" / "raw"
+VIDEO_EXTENSIONS = (".mp4", ".avi", ".mkv", ".mov")
+
 # Kaggle dataset slugs
 KAGGLE_SUMME_TVSUM = "georgelifinrell/summe-video-summarization"
-DATASETS_DIR = Path("data/datasets")
-LABELS_DIR = Path("data/labels")
-RAW_VIDEOS_DIR = Path("data/raw")
-VIDEO_EXTENSIONS = (".mp4", ".avi", ".mkv", ".mov")
 
 
 def _run(cmd: list[str], cwd: Path | None = None) -> bool:
@@ -110,10 +119,17 @@ def collect_video_by_stem(video_dir: Path) -> dict[str, Path]:
 
 
 def prepare_from_directory(data_root: Path) -> None:
-    """Từ thư mục đã giải nén: tìm .mat, export labels, copy videos sang data/raw."""
+    """From extracted dir: prefer .h5 (eccv16) -> labels + features; else .mat -> labels + copy videos."""
+    data_root = Path(data_root)
+    # 1) Try eccv16 .h5 first (SumMe/TVSum with pre-extracted features)
+    n_h5 = prepare_from_h5(data_root, LABELS_DIR, FEATURES_DIR, meta_path=FEATURES_DIR / "_meta.json")
+    if n_h5 > 0:
+        LOG.info("Prepared %d videos from .h5 (labels + features). Skip extract_features.", n_h5)
+        return
+
+    # 2) Fallback: .mat + copy videos to data/raw (then run extract_features)
     LABELS_DIR.mkdir(parents=True, exist_ok=True)
     RAW_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
-
     all_pairs = []
     video_paths_map = {}
 
@@ -155,8 +171,11 @@ def prepare_from_directory(data_root: Path) -> None:
 
 
 def clear_dummy_data() -> None:
-    """Xóa toàn bộ dummy features và labels."""
-    for d, pattern in [(Path("data/features"), "dummy_*"), (Path("data/labels"), "dummy_*")]:
+    """Xóa toàn bộ dummy features và labels (trong thư mục project)."""
+    for d, pattern in [
+        (PROJECT_ROOT / "data" / "features", "dummy_*"),
+        (PROJECT_ROOT / "data" / "labels", "dummy_*"),
+    ]:
         if not d.exists():
             continue
         for f in d.glob(pattern):
@@ -177,7 +196,10 @@ def main() -> None:
             return
 
     if args.from_dir:
-        prepare_from_directory(Path(args.from_dir))
+        from_dir = Path(args.from_dir)
+        if not from_dir.is_absolute():
+            from_dir = PROJECT_ROOT / from_dir
+        prepare_from_directory(from_dir)
         return
 
     if args.all:

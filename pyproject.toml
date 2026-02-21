@@ -15,6 +15,7 @@ dependencies = [
     "PyYAML>=6.0",
     "opencv-python>=4.8.0",
     "scipy>=1.10.0",
+    "h5py>=3.8.0",
 ]
 
 [tool.setuptools.packages.find]

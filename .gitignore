@@ -32,13 +32,17 @@ env/
 *.swo
 *~
 
-# Project
+# Project — dataset & outputs (nằm trong thư mục project, không commit)
 data/raw/*
 !data/raw/.gitkeep
 data/features/*
 !data/features/.gitkeep
 data/labels/*
 !data/labels/.gitkeep
+data/datasets/
+data/summe/
+data/tvsum/
+*.mat
 checkpoints/*.pt
 !checkpoints/.gitkeep
 logs/*.log
@@ -46,12 +50,6 @@ logs/*.txt
 !logs/.gitkeep
 output/*
 !output/.gitkeep
-
-# SumMe / TVSum (downloaded datasets)
-data/summe/
-data/tvsum/
-data/datasets/
-*.mat
 
 # OS
 .DS_Store

@@ -30,11 +30,12 @@ class Trainer:
             "cuda" if torch.cuda.is_available() else "cpu"
         )
 
-    def build_model(self) -> BiLSTMSummarizer:
-        """Build model from config."""
+    def build_model(self, input_dim: Optional[int] = None) -> BiLSTMSummarizer:
+        """Build model from config. input_dim overrides config when set (e.g. from data/features/_meta.json)."""
         m = self.config.model
+        dim = input_dim if input_dim is not None else m.input_dim
         return BiLSTMSummarizer(
-            input_dim=m.input_dim,
+            input_dim=dim,
             hidden_size=m.hidden_size,
             num_layers=m.num_layers,
             dropout=m.dropout,
@@ -48,11 +49,13 @@ class Trainer:
         val_loader: DataLoader,
         checkpoint_dir: Optional[Path] = None,
         resume_path: Optional[Path] = None,
+        model_input_dim: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Run training. Uses BCEWithLogitsLoss by default for frame scores.
+        model_input_dim: override from data/features/_meta.json when using eccv16 .h5 features.
         """
-        model = self.build_model()
+        model = self.build_model(input_dim=model_input_dim)
         t = self.config.training
         criterion = nn.BCEWithLogitsLoss(reduction="mean")
         optimizer = AdamW(

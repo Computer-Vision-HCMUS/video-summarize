@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +23,17 @@ from src.evaluation import (
 from src.utils import set_seed, setup_logging
 
 
+def _feature_dim_from_meta(features_root: Path, fallback: int) -> int:
+    meta = Path(features_root) / "_meta.json"
+    if meta.exists():
+        try:
+            d = json.loads(meta.read_text(encoding="utf-8"))
+            return int(d.get("feature_dim", fallback))
+        except Exception:
+            pass
+    return fallback
+
+
 def _collect_video_ids(features_root: Path, labels_root: Path) -> list[str]:
     label_files = set(f.stem for f in labels_root.glob("*.json"))
     feature_files = set(f.stem for f in features_root.glob("*.npy"))
@@ -38,12 +50,13 @@ def main() -> None:
     set_seed(config.seed)
     setup_logging()
 
-    feature_loader = FeatureLoader(
-        config.paths.features_root,
-        feature_dim=config.features.feature_dim,
-    )
-    label_loader = LabelLoader(config.paths.labels_root)
     paths = config.paths
+    feature_dim = _feature_dim_from_meta(paths.features_root, config.features.feature_dim)
+    feature_loader = FeatureLoader(
+        paths.features_root,
+        feature_dim=feature_dim,
+    )
+    label_loader = LabelLoader(paths.labels_root)
     video_ids = _collect_video_ids(Path(paths.features_root), Path(paths.labels_root))
     if not video_ids:
         raise SystemExit("No videos with features and labels.")
@@ -62,7 +75,7 @@ def main() -> None:
     )
 
     model = BiLSTMSummarizer(
-        input_dim=config.model.input_dim,
+        input_dim=feature_dim,
         hidden_size=config.model.hidden_size,
         num_layers=config.model.num_layers,
         dropout=config.model.dropout,
@@ -89,16 +102,17 @@ def main() -> None:
             for i in range(feats.size(0)):
                 length = lengths[i].item()
                 pred_bin = scores_to_binary(scores[i], length, ratio)
-                gt_bin = labels[i][:length].numpy()
-                if gt_bin.size < length:
-                    gt_bin = np.pad(gt_bin, (0, length - gt_bin.size), constant_values=0)
+                # GT from .h5 is continuous gtscore; binarize same way (top ratio) for fair P/R/F
+                gt_scores = labels[i][:length]
+                gt_bin = scores_to_binary(gt_scores, length, ratio)
                 p, r, f = compute_precision_recall_fscore(pred_bin, gt_bin)
                 all_p.append(p)
                 all_r.append(r)
                 all_f.append(f)
                 keyframes = select_keyshots(scores[i].cpu().numpy(), length, ratio, min_kf)
                 pred_ranges = keyshots_to_ranges(keyframes)
-                gt_ranges = keyshots_to_ranges(np.where(gt_bin > 0.5)[0].tolist())
+                gt_keyframes = np.where(gt_bin > 0.5)[0].tolist()
+                gt_ranges = keyshots_to_ranges(gt_keyframes)
                 overlap_list.append(temporal_overlap(pred_ranges, gt_ranges, length))
 
     print(f"Precision: {np.mean(all_p):.4f} | Recall: {np.mean(all_r):.4f} | F-score: {np.mean(all_f):.4f}")
