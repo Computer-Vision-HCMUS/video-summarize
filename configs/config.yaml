@@ -1,0 +1,54 @@
+# Video Summarization - BiLSTM Supervised Learning
+# Reproducibility
+seed: 42
+
+# Paths
+paths:
+  data_root: "data/raw"
+  features_root: "data/features"
+  labels_root: "data/labels"
+  checkpoints_dir: "checkpoints"
+  logs_dir: "logs"
+  output_dir: "output"
+
+# Data
+data:
+  train_split: 0.8
+  val_split: 0.1
+  test_split: 0.1
+  max_seq_len: 320
+  min_seq_len: 16
+  padding_value: 0.0
+
+# Feature extraction
+features:
+  sample_rate: 2  # frames per second
+  backbone: "resnet50"
+  pretrained: true
+  feature_dim: 2048
+  device: "cuda"
+
+# Model
+model:
+  input_dim: 2048
+  hidden_size: 256
+  num_layers: 2
+  dropout: 0.3
+  bidirectional: true
+  use_attention: true
+
+# Training
+training:
+  batch_size: 8
+  epochs: 50
+  learning_rate: 1.0e-3
+  weight_decay: 1.0e-5
+  early_stopping_patience: 10
+  gradient_clip: 1.0
+  checkpoint_every: 5
+
+# Inference / Summary
+inference:
+  summary_ratio: 0.15  # fraction of frames to keep
+  min_keyframes: 5
+  skim_fps: 15

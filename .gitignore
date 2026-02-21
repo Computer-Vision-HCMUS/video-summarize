@@ -1,0 +1,70 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+*.egg
+
+# Virtual env
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Project
+data/raw/*
+!data/raw/.gitkeep
+data/features/*
+!data/features/.gitkeep
+data/labels/*
+!data/labels/.gitkeep
+checkpoints/*.pt
+!checkpoints/.gitkeep
+logs/*.log
+logs/*.txt
+!logs/.gitkeep
+output/*
+!output/.gitkeep
+
+# SumMe / TVSum (downloaded datasets)
+data/summe/
+data/tvsum/
+data/datasets/
+*.mat
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy
+.mypy_cache/
