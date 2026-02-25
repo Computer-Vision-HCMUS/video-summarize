@@ -1,7 +1,6 @@
 """
 Streamlit demo: upload video -> summarized video (skim).
-Uses trained BiLSTM checkpoint; extracts features from uploaded video then runs model.
-Imports torch/src only when needed to avoid Streamlit watcher + PyTorch __path__ conflict.
+Tự động detect input_dim và backbone từ checkpoint — không cần chọn tay.
 """
 
 from __future__ import annotations
@@ -14,41 +13,114 @@ import streamlit as st
 st.set_page_config(page_title="Video Summarization", page_icon="🎬", layout="centered")
 
 st.title("🎬 Video Summarization Demo")
-st.caption("Upload a video or paste a YouTube link → get a short summary video (keyframes only).")
+st.caption("Upload a video or paste a YouTube link → get a short summary video.")
 
-# Sidebar: config and checkpoint
+# ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.header("Model")
-    config_path = st.text_input("Config", value="configs/config.yaml")
+    config_path     = st.text_input("Config", value="configs/config.yaml")
     checkpoint_path = st.text_input("Checkpoint", value="checkpoints/best.pt")
-    summary_ratio = st.slider("Summary ratio", 0.05, 0.5, 0.15, 0.01)
-    skim_fps = st.slider("Output FPS", 5, 30, 15)
-    feature_type = st.radio("Feature backbone (must match training)", ["1024 (GoogLeNet / .h5)", "2048 (ResNet)"], index=0)
-    input_dim = 1024 if "1024" in feature_type else 2048
-    backbone = "googlenet" if input_dim == 1024 else "resnet50"
+    summary_ratio   = st.slider("Summary ratio", 0.05, 0.5, 0.15, 0.01)
+    skim_fps        = st.slider("Output FPS", 5, 30, 15)
 
+# ── Input ─────────────────────────────────────────────────────────────────────
 input_mode = st.radio("Input", ["Upload video", "YouTube URL"], horizontal=True)
-video_path_for_run = None
 
 if input_mode == "Upload video":
-    uploaded = st.file_uploader("Upload a video", type=["mp4", "avi", "mkv", "mov"], help="Video file to summarize.")
+    uploaded = st.file_uploader(
+        "Upload a video", type=["mp4", "avi", "mkv", "mov"]
+    )
     if uploaded is None:
         st.info("Upload a video to start.")
         st.stop()
-    # Will write to temp file when user clicks Generate
 else:
-    youtube_url = st.text_input("YouTube URL", placeholder="https://www.youtube.com/watch?v=...", help="Uses yt-dlp — install in the same env as Streamlit: pip install yt-dlp")
+    youtube_url = st.text_input(
+        "YouTube URL", placeholder="https://www.youtube.com/watch?v=..."
+    )
     if not youtube_url or ("youtube.com" not in youtube_url and "youtu.be" not in youtube_url):
         st.info("Paste a YouTube link to start.")
         st.stop()
 
+# ── Checkpoint check ──────────────────────────────────────────────────────────
+ckpt = Path(checkpoint_path)
+if not ckpt.is_absolute():
+    ckpt = Path(__file__).resolve().parent / ckpt
+if not ckpt.exists():
+    st.error(f"Checkpoint not found: {ckpt}. Train a model first.")
+    st.stop()
+checkpoint_path = str(ckpt)
 
+
+# ── Auto-detect backbone từ input_dim ─────────────────────────────────────────
+def _detect_backbone(input_dim: int) -> str:
+    """
+    Tự chọn CNN backbone phù hợp với input_dim trong checkpoint.
+    
+    Mapping:
+        1024 → googlenet  (eccv16 .h5 features)
+        1408 → googlenet  (1024 visual + 384 audio)
+        2048 → resnet50
+        2432 → resnet50   (2048 visual + 384 audio)
+    """
+    visual_dim = input_dim - 384 if input_dim in (1408, 2432) else input_dim
+    if visual_dim <= 1024:
+        return "googlenet"
+    return "resnet50"
+
+
+def _detect_has_audio(input_dim: int) -> bool:
+    """Checkpoint có audio features không (dựa vào input_dim)."""
+    return input_dim in (1408, 2432)
+
+
+# ── Load model ────────────────────────────────────────────────────────────────
+@st.cache_resource
+def load_model_and_extractor(_config_path: str, _checkpoint_path: str):
+    import torch
+    from src.config import load_config
+    from src.features import CNNFeatureExtractor
+    from src.models import BiLSTMSummarizer
+
+    cfg = Path(_config_path)
+    if not cfg.is_absolute():
+        cfg = Path(__file__).resolve().parent / cfg
+    config = load_config(cfg)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Đọc checkpoint
+    ckpt_data = torch.load(_checkpoint_path, map_location="cpu")
+    state     = ckpt_data["model_state_dict"]
+
+    # Auto-detect input_dim từ weight shape
+    # lstm.weight_ih_l0: shape = [4*hidden_size, input_dim]
+    input_dim = state["lstm.weight_ih_l0"].shape[1]
+    backbone  = _detect_backbone(input_dim)
+    has_audio = _detect_has_audio(input_dim)
+
+    model = BiLSTMSummarizer(
+        input_dim=input_dim,
+        hidden_size=config.model.hidden_size,
+        num_layers=config.model.num_layers,
+        dropout=config.model.dropout,
+        bidirectional=getattr(config.model, "bidirectional", True),
+        use_attention=getattr(config.model, "use_attention", True),
+    )
+    model.load_state_dict(state)
+    model = model.to(device).eval()
+
+    extractor = CNNFeatureExtractor(
+        backbone=backbone, pretrained=True, device=str(device)
+    )
+
+    return model, extractor, device, config, input_dim, backbone, has_audio
+
+
+# ── YouTube download ──────────────────────────────────────────────────────────
 def download_youtube(url: str, out_dir: Path) -> tuple[Path | None, str | None]:
-    """Download YouTube video to out_dir. Returns (path_to_video, error_message). Error is None on success."""
     try:
         import yt_dlp
     except ImportError as e:
-        return None, f"yt-dlp not found in this Python env: {e}. Install: pip install yt-dlp (then restart Streamlit)."
+        return None, f"yt-dlp not found: {e}. Install: pip install yt-dlp"
     try:
         out_dir.mkdir(parents=True, exist_ok=True)
         opts = {
@@ -65,73 +137,89 @@ def download_youtube(url: str, out_dir: Path) -> tuple[Path | None, str | None]:
         return None, "Download failed (no video file)."
     except Exception as e:
         err = str(e)
-        if "not available" in err.lower() or "private" in err.lower() or "unavailable" in err.lower():
-            err = "Video không khả dụng (private, đã xóa hoặc giới hạn vùng). Thử link khác hoặc mở link trong trình duyệt để kiểm tra.\n" + err
+        if any(k in err.lower() for k in ("not available", "private", "unavailable")):
+            err = "Video không khả dụng. Thử link khác.\n" + err
         return None, err
 
 
-ckpt = Path(checkpoint_path)
-if not ckpt.is_absolute():
-    ckpt = Path(__file__).resolve().parent / ckpt
-if not ckpt.exists():
-    st.error(f"Checkpoint not found: {ckpt}. Train a model first or set the path in the sidebar.")
-    st.stop()
-checkpoint_path = str(ckpt)
-
-@st.cache_resource
-def load_model_and_extractor(_config_path: str, _checkpoint_path: str, _input_dim: int, _backbone: str):
+# ── Run summary ───────────────────────────────────────────────────────────────
+def run_summary(
+    video_path: Path,
+    model,
+    extractor,
+    device,
+    has_audio: bool,
+    summary_ratio_val: float,
+    skim_fps_val: int,
+):
     import torch
-    from src.config import load_config
-    from src.features import CNNFeatureExtractor
-    from src.models import BiLSTMSummarizer
-    cfg = Path(_config_path)
-    if not cfg.is_absolute():
-        cfg = Path(__file__).resolve().parent / cfg
-    config = load_config(cfg)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = BiLSTMSummarizer(
-        input_dim=_input_dim,
-        hidden_size=config.model.hidden_size,
-        num_layers=config.model.num_layers,
-        dropout=config.model.dropout,
-        bidirectional=getattr(config.model, "bidirectional", True),
-        use_attention=getattr(config.model, "use_attention", True),
-    )
-    ckpt = torch.load(_checkpoint_path, map_location="cpu")
-    model.load_state_dict(ckpt["model_state_dict"])
-    model = model.to(device)
-    model.eval()
-    extractor = CNNFeatureExtractor(backbone=_backbone, pretrained=True, device=str(device))
-    return model, extractor, device, config
-
-def run_summary(video_path: Path, model, extractor, device, summary_ratio_val: float, skim_fps_val: int):
-    import torch
+    import numpy as np
     from src.features import FrameSampler
     from src.evaluation import select_keyshots
-    from src.inference.dynamic_summary import generate_dynamic_summary, export_summary_video
-    sampler = FrameSampler(sample_rate=2)
-    frames = sampler.sample_frames_to_list(video_path)
+    from src.inference.dynamic_summary import create_summary_video
+
+    SAMPLE_RATE = 2
+    sampler = FrameSampler(sample_rate=SAMPLE_RATE)
+    frames  = sampler.sample_frames_to_list(video_path)
     if not frames:
         return None, "No frames extracted."
-    feats = extractor.extract_from_frames(frames, batch_size=16)
-    length = feats.shape[0]
+
+    # Visual features
+    visual_feats = extractor.extract_from_frames(frames, batch_size=16)
+    length       = visual_feats.shape[0]
+
+    # Audio features (nếu model được train với audio)
+    if has_audio:
+        try:
+            from src.features.audio_extractor import AudioExtractor
+            audio_ext  = AudioExtractor(
+                whisper_model="base",
+                device=str(device),
+                sample_rate=SAMPLE_RATE,
+            )
+            audio_feats = audio_ext.extract_from_video(video_path, n_frames=length)
+            feats       = np.concatenate([visual_feats, audio_feats], axis=1)
+        except Exception as e:
+            st.warning(f"⚠️ Audio extraction thất bại ({e}). Dùng visual-only.")
+            audio_zero = np.zeros((length, 384), dtype=np.float32)
+            feats      = np.concatenate([visual_feats, audio_zero], axis=1)
+    else:
+        feats = visual_feats
+
     x = torch.from_numpy(feats).float().unsqueeze(0).to(device)
     with torch.no_grad():
         scores, _ = model(x, lengths=torch.tensor([length], device=device))
-    scores = scores[0].cpu().numpy()
+    scores    = scores[0].cpu().numpy()
     keyframes = select_keyshots(scores, length, summary_ratio=summary_ratio_val, min_keyframes=5)
-    out_frames = generate_dynamic_summary(video_path, keyframes, target_fps=skim_fps_val)
-    if not out_frames:
-        return None, "No summary frames."
+
     out_path = Path(tempfile.gettempdir()) / "streamlit_summary.mp4"
-    export_summary_video(out_frames, out_path, fps=skim_fps_val)
+    try:
+        create_summary_video(
+            video_path=video_path,
+            keyframe_indices=keyframes,
+            output_path=out_path,
+            target_fps=skim_fps_val,
+            sample_rate=SAMPLE_RATE,
+        )
+    except Exception:
+        # Fallback sang method cũ nếu ffmpeg không có
+        from src.inference.dynamic_summary import generate_dynamic_summary, export_summary_video
+        out_frames = generate_dynamic_summary(video_path, keyframes, skim_fps_val)
+        if not out_frames:
+            return None, "No summary frames."
+        export_summary_video(out_frames, out_path, fps=skim_fps_val)
+
     return out_path, None
 
+
+# ── Generate button ───────────────────────────────────────────────────────────
 if st.button("Generate summary", type="primary"):
     video_path = None
     try:
         if input_mode == "Upload video":
-            with tempfile.NamedTemporaryFile(suffix=Path(uploaded.name).suffix, delete=False) as tmp:
+            with tempfile.NamedTemporaryFile(
+                suffix=Path(uploaded.name).suffix, delete=False
+            ) as tmp:
                 tmp.write(uploaded.read())
                 video_path = Path(tmp.name)
         else:
@@ -154,9 +242,21 @@ if st.button("Generate summary", type="primary"):
             video_path = single
 
         with st.spinner("Loading model..."):
-            model, extractor, device, config = load_model_and_extractor(config_path, checkpoint_path, input_dim, backbone)
+            model, extractor, device, config, input_dim, backbone, has_audio = \
+                load_model_and_extractor(config_path, checkpoint_path)
+
+            # Hiển thị thông tin model đã detect
+            st.sidebar.divider()
+            st.sidebar.subheader("🔍 Auto-detected")
+            st.sidebar.write(f"**Input dim:** {input_dim}")
+            st.sidebar.write(f"**Backbone:** {backbone}")
+            st.sidebar.write(f"**Audio:** {'✅ có' if has_audio else '❌ không'}")
+
         with st.spinner("Extracting features and predicting..."):
-            out_path, err = run_summary(video_path, model, extractor, device, summary_ratio, skim_fps)
+            out_path, err = run_summary(
+                video_path, model, extractor, device,
+                has_audio, summary_ratio, skim_fps,
+            )
     finally:
         if video_path and video_path.exists():
             video_path.unlink(missing_ok=True)
@@ -168,4 +268,7 @@ if st.button("Generate summary", type="primary"):
     st.success("Summary video ready.")
     st.video(str(out_path))
     with open(out_path, "rb") as f:
-        st.download_button("Download summary video", data=f, file_name="summary.mp4", mime="video/mp4")
+        st.download_button(
+            "Download summary video", data=f,
+            file_name="summary.mp4", mime="video/mp4",
+        )
