@@ -92,6 +92,16 @@ python -m streamlit run app.py
 
 Use **`python -m streamlit run app.py`** so Streamlit runs in the same Python where you installed yt-dlp (avoids "Install yt-dlp" when it’s already installed in another env). In the sidebar: choose checkpoint path and **feature backbone** (1024 for .h5, 2048 for ResNet). Adjust summary ratio and output FPS if needed.
 
+## Longer videos (nhiều phút hơn)
+
+Config mặc định dùng `max_seq_len: 960` (~8 phút tại 2 fps). Nếu trước đây bạn train với `max_seq_len: 320` (~2.7 phút), cần **train lại** để model học trên đoạn dài hơn:
+
+```bash
+python -m scripts.train --config configs/config.yaml
+```
+
+Sau khi train xong, demo Streamlit và inference sẽ xử lý video dài theo từng chunk (mỗi chunk 960 frame), rồi gộp điểm để chọn keyframe trên toàn bộ video.
+
 ## Config
 
 Edit `configs/config.yaml` for: paths, `max_seq_len`, model `hidden_size`/`num_layers`/`use_attention`, `batch_size`, `learning_rate`, `early_stopping_patience`, `summary_ratio`, etc.

@@ -31,6 +31,7 @@ class InferencePipeline:
         summary_ratio: float = 0.15,
         min_keyframes: int = 5,
         skim_fps: int = 15,
+        max_seq_len: int = 960,
     ) -> None:
         self.model = model
         self.feature_loader = feature_loader
@@ -40,19 +41,33 @@ class InferencePipeline:
         self.summary_ratio = summary_ratio
         self.min_keyframes = min_keyframes
         self.skim_fps = skim_fps
+        self.max_seq_len = max_seq_len
 
     def predict_scores(self, video_id: str) -> Tuple[Optional[np.ndarray], int]:
         """
         Get frame importance scores for a video. Returns (scores (T,), length) or (None, 0).
+        For length > max_seq_len, runs model in chunks and concatenates scores.
         """
         feats = self.feature_loader.load(video_id)
         if feats is None:
             return None, 0
-        feats = feats.unsqueeze(0).to(self.device)
-        length = feats.size(1)
+        feats = feats.to(self.device)
+        length = feats.size(0)
         with torch.no_grad():
-            scores, _ = self.model(feats, lengths=torch.tensor([length], device=self.device))
-        return scores[0].cpu().numpy(), length
+            if length <= self.max_seq_len:
+                x = feats.unsqueeze(0)
+                scores, _ = self.model(x, lengths=torch.tensor([length], device=self.device))
+                scores = scores[0].cpu().numpy()
+            else:
+                scores_list = []
+                for start in range(0, length, self.max_seq_len):
+                    end = min(start + self.max_seq_len, length)
+                    chunk = feats[start:end]
+                    x = chunk.unsqueeze(0)
+                    s, _ = self.model(x, lengths=torch.tensor([end - start], device=self.device))
+                    scores_list.append(s[0].cpu().numpy())
+                scores = np.concatenate(scores_list)
+        return scores, length
 
     def select_keyframes(
         self,

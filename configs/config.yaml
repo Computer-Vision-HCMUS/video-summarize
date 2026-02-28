@@ -11,12 +11,12 @@ paths:
   logs_dir: "logs"
   output_dir: "output"
 
-# Data
+# Data (max_seq_len at 2 fps: 320≈2.7min, 960≈8min, 1200≈10min)
 data:
   train_split: 0.8
   val_split: 0.1
   test_split: 0.1
-  max_seq_len: 320
+  max_seq_len: 960
   min_seq_len: 16
   padding_value: 0.0
 
@@ -37,9 +37,9 @@ model:
   bidirectional: true
   use_attention: true
 
-# Training
+# Training (batch_size 4 when max_seq_len 960 to avoid OOM)
 training:
-  batch_size: 8
+  batch_size: 4
   epochs: 50
   learning_rate: 1.0e-3
   weight_decay: 1.0e-5
@@ -47,8 +47,8 @@ training:
   gradient_clip: 1.0
   checkpoint_every: 5
 
-# Inference / Summary
+# Inference / Summary (ratio 0.35 ≈ ~1–2 min output from 10 min at 4 fps)
 inference:
-  summary_ratio: 0.15  # fraction of frames to keep
+  summary_ratio: 0.35
   min_keyframes: 5
   skim_fps: 15

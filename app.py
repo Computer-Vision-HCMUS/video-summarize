@@ -21,11 +21,9 @@ with st.sidebar:
     st.header("Model")
     config_path = st.text_input("Config", value="configs/config.yaml")
     checkpoint_path = st.text_input("Checkpoint", value="checkpoints/best.pt")
-    summary_ratio = st.slider("Summary ratio", 0.05, 0.5, 0.15, 0.01)
+    summary_ratio = st.slider("Summary ratio (cao = video tóm tắt dài hơn)", 0.10, 0.70, 0.35, 0.05)
     skim_fps = st.slider("Output FPS", 5, 30, 15)
-    feature_type = st.radio("Feature backbone (must match training)", ["1024 (GoogLeNet / .h5)", "2048 (ResNet)"], index=0)
-    input_dim = 1024 if "1024" in feature_type else 2048
-    backbone = "googlenet" if input_dim == 1024 else "resnet50"
+    st.caption("Backbone tự chọn theo checkpoint (1024=GoogLeNet/.h5, 2048=ResNet)")
 
 input_mode = st.radio("Input", ["Upload video", "YouTube URL"], horizontal=True)
 video_path_for_run = None
@@ -79,7 +77,7 @@ if not ckpt.exists():
 checkpoint_path = str(ckpt)
 
 @st.cache_resource
-def load_model_and_extractor(_config_path: str, _checkpoint_path: str, _input_dim: int, _backbone: str):
+def load_model_and_extractor(_config_path: str, _checkpoint_path: str):
     import torch
     from src.config import load_config
     from src.features import CNNFeatureExtractor
@@ -89,38 +87,65 @@ def load_model_and_extractor(_config_path: str, _checkpoint_path: str, _input_di
         cfg = Path(__file__).resolve().parent / cfg
     config = load_config(cfg)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    ckpt = torch.load(_checkpoint_path, map_location="cpu")
+    sd = ckpt.get("model_state_dict", ckpt)
+    w = sd.get("lstm.weight_ih_l0")
+    input_dim = int(w.shape[1]) if w is not None else 1024
+    backbone = "googlenet" if input_dim == 1024 else "resnet50"
     model = BiLSTMSummarizer(
-        input_dim=_input_dim,
+        input_dim=input_dim,
         hidden_size=config.model.hidden_size,
         num_layers=config.model.num_layers,
         dropout=config.model.dropout,
         bidirectional=getattr(config.model, "bidirectional", True),
         use_attention=getattr(config.model, "use_attention", True),
     )
-    ckpt = torch.load(_checkpoint_path, map_location="cpu")
     model.load_state_dict(ckpt["model_state_dict"])
     model = model.to(device)
     model.eval()
-    extractor = CNNFeatureExtractor(backbone=_backbone, pretrained=True, device=str(device))
+    extractor = CNNFeatureExtractor(backbone=backbone, pretrained=True, device=str(device))
     return model, extractor, device, config
 
-def run_summary(video_path: Path, model, extractor, device, summary_ratio_val: float, skim_fps_val: int):
+def run_summary(video_path: Path, model, extractor, device, config, summary_ratio_val: float, skim_fps_val: int):
     import torch
+    import numpy as np
     from src.features import FrameSampler
     from src.evaluation import select_keyshots
     from src.inference.dynamic_summary import generate_dynamic_summary, export_summary_video
-    sampler = FrameSampler(sample_rate=2)
+    max_seq_len = getattr(config.data, "max_seq_len", 960)
+    sample_rate = 4
+    sampler = FrameSampler(sample_rate=sample_rate)
     frames = sampler.sample_frames_to_list(video_path)
     if not frames:
         return None, "No frames extracted."
     feats = extractor.extract_from_frames(frames, batch_size=16)
     length = feats.shape[0]
-    x = torch.from_numpy(feats).float().unsqueeze(0).to(device)
     with torch.no_grad():
-        scores, _ = model(x, lengths=torch.tensor([length], device=device))
-    scores = scores[0].cpu().numpy()
-    keyframes = select_keyshots(scores, length, summary_ratio=summary_ratio_val, min_keyframes=5)
-    out_frames = generate_dynamic_summary(video_path, keyframes, target_fps=skim_fps_val)
+        if length <= max_seq_len:
+            x = torch.from_numpy(feats).float().unsqueeze(0).to(device)
+            scores, _ = model(x, lengths=torch.tensor([length], device=device))
+            scores = scores[0].cpu().numpy()
+        else:
+            scores_list = []
+            for start in range(0, length, max_seq_len):
+                end = min(start + max_seq_len, length)
+                chunk = feats[start:end]
+                x = torch.from_numpy(chunk).float().unsqueeze(0).to(device)
+                s, _ = model(x, lengths=torch.tensor([end - start], device=device))
+                scores_list.append(s[0].cpu().numpy())
+            scores = np.concatenate(scores_list)
+    keyframes_sampled = select_keyshots(scores, length, summary_ratio=summary_ratio_val, min_keyframes=5)
+    import cv2
+    cap = cv2.VideoCapture(str(video_path))
+    video_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    total_video_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    cap.release()
+    keyframes_original = [
+        min(int(round(i * video_fps / sample_rate)), total_video_frames - 1)
+        for i in keyframes_sampled
+    ]
+    keyframes_original = sorted(set(keyframes_original))
+    out_frames = generate_dynamic_summary(video_path, keyframes_original, target_fps=skim_fps_val)
     if not out_frames:
         return None, "No summary frames."
     out_path = Path(tempfile.gettempdir()) / "streamlit_summary.mp4"
@@ -154,9 +179,9 @@ if st.button("Generate summary", type="primary"):
             video_path = single
 
         with st.spinner("Loading model..."):
-            model, extractor, device, config = load_model_and_extractor(config_path, checkpoint_path, input_dim, backbone)
+            model, extractor, device, config = load_model_and_extractor(config_path, checkpoint_path)
         with st.spinner("Extracting features and predicting..."):
-            out_path, err = run_summary(video_path, model, extractor, device, summary_ratio, skim_fps)
+            out_path, err = run_summary(video_path, model, extractor, device, config, summary_ratio, skim_fps)
     finally:
         if video_path and video_path.exists():
             video_path.unlink(missing_ok=True)

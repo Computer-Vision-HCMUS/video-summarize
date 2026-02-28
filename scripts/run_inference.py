@@ -54,6 +54,7 @@ def main() -> None:
         summary_ratio=config.inference.summary_ratio,
         min_keyframes=config.inference.min_keyframes,
         skim_fps=config.inference.skim_fps,
+        max_seq_len=getattr(config.data, "max_seq_len", 960),
     )
 
     if args.static:
