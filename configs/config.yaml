@@ -34,6 +34,8 @@ model:
   hidden_size: 256
   num_layers: 2
   dropout: 0.3
+  use_audio: true
+  audio_dim: 384
   bidirectional: true
   use_attention: true
 
