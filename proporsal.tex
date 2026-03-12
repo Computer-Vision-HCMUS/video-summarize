@@ -1,0 +1,775 @@
+\documentclass[12pt, a4paper]{report}
+
+% ─── Packages ────────────────────────────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[english]{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{tocloft}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{parskip}
+\usepackage{float}
+\usepackage{cite}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+% ─── Page geometry ───────────────────────────────────────────────────────────
+\geometry{
+  top=2.5cm, bottom=2.5cm,
+  left=3cm,  right=2.5cm
+}
+
+% ─── Spacing ─────────────────────────────────────────────────────────────────
+\onehalfspacing
+
+% ─── Colors ──────────────────────────────────────────────────────────────────
+\definecolor{vnuBlue}{RGB}{0, 70, 127}
+\definecolor{accentRed}{RGB}{180, 30, 30}
+\definecolor{codeGray}{RGB}{245, 245, 245}
+\definecolor{commentGreen}{RGB}{60, 128, 49}
+
+% ─── Hyperref setup ──────────────────────────────────────────────────────────
+\hypersetup{
+  colorlinks = true,
+  linkcolor  = vnuBlue,
+  citecolor  = accentRed,
+  urlcolor   = vnuBlue,
+  pdftitle   = {Video Summarization by Supervised Learning},
+  pdfauthor  = {Tran Hai Duc}
+}
+
+% ─── Header / Footer ─────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\footnotesize\textit{Video Summarization by Supervised Learning}}
+\fancyhead[R]{\footnotesize\textit{Duc (23127173) \& Chien (23127331)}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ─── Section title formatting ─────────────────────────────────────────────────
+\titleformat{\chapter}[display]
+  {\normalfont\Large\bfseries\color{vnuBlue}}
+  {\chaptertitlename\ \thechapter}{10pt}{\huge}
+\titlespacing*{\chapter}{0pt}{30pt}{20pt}
+
+\titleformat{\section}
+  {\normalfont\large\bfseries\color{vnuBlue}}
+  {\thesection}{1em}{}
+
+\titleformat{\subsection}
+  {\normalfont\normalsize\bfseries}
+  {\thesubsection}{1em}{}
+
+% ─── Code listing style ───────────────────────────────────────────────────────
+\lstset{
+  backgroundcolor=\color{codeGray},
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  commentstyle=\color{commentGreen},
+  keywordstyle=\bfseries\color{vnuBlue},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  captionpos=b
+}
+
+% ─────────────────────────────────────────────────────────────────────────────
+%  DOCUMENT
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ════════════════════════════════════════════════════════════════════════════
+%  COVER PAGE
+% ════════════════════════════════════════════════════════════════════════════
+\begin{titlepage}
+\thispagestyle{empty}
+\begin{center}
+
+  {\large\textbf{VIETNAM NATIONAL UNIVERSITY -- HO CHI MINH CITY}}\\[4pt]
+  {\large\textbf{UNIVERSITY OF SCIENCE}}\\[4pt]
+  {\large\textbf{FACULTY OF INFORMATION TECHNOLOGY}}
+
+  \vspace{1.5cm}
+  \hrule height 1.2pt
+  \vspace{0.4cm}
+  \hrule height 0.4pt
+  \vspace{1.5cm}
+
+  % \includegraphics[width=3cm]{hcmus_logo.png}\\[1cm]
+
+  {\color{vnuBlue}\Huge\bfseries
+    Video Summarization\\[8pt]
+    by Supervised Learning
+  }
+
+  \vspace{0.8cm}
+  {\Large\bfseries Research Report}
+
+  \vspace{0.5cm}
+  \hrule height 0.4pt
+  \vspace{0.4cm}
+  \hrule height 1.2pt
+  \vspace{1.8cm}
+
+  \begin{minipage}{0.48\textwidth}
+    \raggedright
+    \textbf{Students:}\\[4pt]
+    \quad Tran Hai Duc\\
+    \quad Student ID: \texttt{23127173}\\[6pt]
+    \quad Nguyen Cong Chien\\
+    \quad Student ID: \texttt{23127331}
+  \end{minipage}
+  \hfill
+  \begin{minipage}{0.48\textwidth}
+    \raggedleft
+    \textbf{Supervisor:}\\[4pt]
+    Vo Hoai Viet, Ph.D.
+  \end{minipage}
+
+  \vfill
+
+  {\large Ho Chi Minh City, \the\year}
+
+\end{center}
+\end{titlepage}
+
+% ════════════════════════════════════════════════════════════════════════════
+%  ACKNOWLEDGEMENTS
+% ════════════════════════════════════════════════════════════════════════════
+\chapter*{Acknowledgements}
+\addcontentsline{toc}{chapter}{Acknowledgements}
+\thispagestyle{fancy}
+
+First and foremost, I would like to express my sincere gratitude to my supervisor,
+\textbf{Dr.\ Vo Hoai Viet}, for his invaluable guidance, encouragement, and continuous
+support throughout this research project. His insightful feedback, deep expertise in
+computer vision and machine learning, and willingness to create a conducive research
+environment have been instrumental in shaping both the direction and the quality of
+this work. I am truly grateful for every discussion, suggestion, and resource he
+generously provided.
+
+I also wish to extend my heartfelt thanks to the research community whose open
+contributions have made this study possible. The authors of the \textbf{SumMe} and
+\textbf{TVSum} benchmark datasets provided critical evaluation resources that enabled
+rigorous experimentation. The developers of \textbf{OpenAI Whisper}, \textbf{SentenceBERT},
+and the underlying pre-trained deep learning models offered foundational building blocks
+without which the proposed pipeline could not have been realised. I likewise acknowledge
+the pioneering work of \textbf{Zhang et al.}\ on video summarization with long
+short-term memory networks, which directly inspired the architectural choices in this
+project.
+
+Special thanks go to my teammate \textbf{Nguyen Cong Chien} (Student ID: 23127331)
+for his dedication, collaboration, and shared effort throughout every stage of this
+project -- from system design and implementation to experimentation and writing.
+I also thank my classmates and friends for their moral support and stimulating
+discussions during challenging moments of the research process.
+
+Finally, I am deeply indebted to my family for their unwavering love, patience, and
+encouragement throughout my studies.
+
+This work was carried out at the University of Science, Vietnam National University --
+Ho Chi Minh City. Any remaining errors or shortcomings are solely my own responsibility.
+
+\vspace{1.5cm}
+\begin{flushright}
+  \textit{Ho Chi Minh City, \the\year}\\[6pt]
+  \textit{Tran Hai Duc}
+\end{flushright}
+
+\newpage
+
+% ════════════════════════════════════════════════════════════════════════════
+%  TABLE OF CONTENTS
+% ════════════════════════════════════════════════════════════════════════════
+\tableofcontents
+\newpage
+
+% ════════════════════════════════════════════════════════════════════════════
+%  CHAPTER 1 -- INTRODUCTION
+% ════════════════════════════════════════════════════════════════════════════
+\chapter{Introduction}
+
+\section{Overview of Video Summarization}
+
+\textbf{Video summarization} is the task of automatically generating a compact
+representation of a video that retains its most important content and storyline
+\cite{haq2021,money2015}. Depending on the output format, summaries fall into two
+main categories:
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \textbf{Static summary:} a set of representative keyframes extracted from
+        the original video.
+  \item \textbf{Dynamic summary:} a shortened video clip assembled from selected
+        important segments, preserving both visual content and audio.
+\end{itemize}
+
+The overarching goal is to \emph{reduce viewing time} without sacrificing the essential
+narrative, allowing users to grasp the key content efficiently.
+
+\section{Motivating Examples}
+
+\subsection{Everyday Use Case}
+Consider a user who wishes to watch a one-hour lecture on YouTube but has only ten
+minutes available. A video summarization system can:
+\begin{enumerate}
+  \item Automatically identify segments containing core explanations, motivating
+        examples, and concluding remarks.
+  \item Assemble a condensed version of approximately 6--10 minutes, enabling the user
+        to absorb 70--80\,\% of the essential content without watching the full hour.
+\end{enumerate}
+
+\subsection{Data Reduction Perspective}
+In \textbf{video classification} tasks, models must process thousands of frames per
+video, incurring large computational costs. By first summarizing a video to retain
+only $\approx 15\,\%$ of its frames, the downstream classifier effectively operates on
+a lower-dimensional representation. This yields two concrete benefits:
+\begin{itemize}
+  \item Reduced computation and storage requirements.
+  \item A focus on information-rich frames, which can improve classification accuracy
+        on the same hardware budget.
+\end{itemize}
+
+\section{Significance of the Work}
+
+\subsection{Practical Significance}
+The practical impact of video summarization includes \cite{kadam2022}:
+\begin{itemize}
+  \item \textbf{Time savings for users:} viewers can quickly understand the content
+        of long videos without watching them in full.
+  \item \textbf{Support for recommendation and retrieval:} meaningful keyframes improve
+        thumbnail generation and enable preview functionality.
+  \item \textbf{Applications in education and news:} automatic highlight extraction
+        for lectures, MOOCs, and broadcast news programmes.
+\end{itemize}
+
+\subsection{Scientific Significance}
+From a data-science perspective:
+\begin{itemize}
+  \item \textbf{Structured dimensionality reduction:} video summarization selects
+        frames or segments with high \emph{information content}, rather than applying
+        uniform down-sampling.
+  \item \textbf{Pre-processing for downstream models:} summarizing large video corpora
+        before training classification, retrieval, or captioning models reduces
+        training costs and focuses learning on informative data.
+\end{itemize}
+
+\section{Research Context}
+
+Current approaches to video summarization span a wide spectrum \cite{apostolidis2021}:
+\begin{itemize}
+  \item \textbf{Traditional methods:} heuristic rules, clustering, shot detection.
+  \item \textbf{Deep learning:} sequence labeling with LSTM/BiLSTM \cite{zhang2016},
+        attention and Transformer models, reinforcement learning, self-supervised
+        learning.
+  \item \textbf{Multimodal methods:} combining visual, audio, transcript, and metadata
+        features \cite{psallidas2021,hu2023}.
+\end{itemize}
+
+Recent surveys \cite{apostolidis2021} identify several open opportunities:
+\begin{itemize}
+  \item Better exploitation of textual and audio signals (speech, subtitles, OCR).
+  \item More effective modeling of long sequences using hierarchical Transformers.
+  \item Unsupervised and semi-supervised learning to reduce annotation costs.
+\end{itemize}
+
+\section{Research Focus}
+
+This project targets \textbf{multimodal video summarization (visual + audio)} in a
+supervised setting on the SumMe \cite{gygli2014} and TVSum \cite{song2015} benchmarks.
+The proposed architecture combines a \textbf{BiLSTM with Temporal Attention}
+\cite{zhang2016} with an audio branch built on Whisper \cite{radford2023} and
+SentenceBERT \cite{reimers2019}. The primary deliverable is a \textbf{dynamic summary}
+-- a condensed video clip with intact audio.
+
+% ════════════════════════════════════════════════════════════════════════════
+%  CHAPTER 2 -- PROBLEM FORMULATION
+% ════════════════════════════════════════════════════════════════════════════
+\chapter{Problem Formulation}
+
+\section{Input}
+
+\begin{itemize}
+  \item A raw video $V$ in any standard container format (\texttt{.mp4}, \texttt{.avi},
+        etc.) of arbitrary duration.
+  \item During training: frame-level importance scores $y_t \in [0,1]$ for each frame
+        $t$, derived from human annotations provided in the SumMe and TVSum datasets.
+\end{itemize}
+
+\section{Output}
+
+\begin{itemize}
+  \item \textbf{Static summary:} a set of representative keyframes that collectively
+        depict the video's main content.
+  \item \textbf{Dynamic summary:} a condensed video $V_{\text{sum}}$ of approximately
+        $15\,\%$ of the original duration, assembled from the most important segments
+        and retaining the corresponding audio track.
+\end{itemize}
+
+\section{Implementation Focus}
+
+This project concentrates on \textbf{dynamic summaries} for three reasons:
+\begin{enumerate}
+  \item They more closely match real-world user needs -- watching a short video with
+        sound rather than browsing static images.
+  \item They allow qualitative evaluation through direct viewing experience.
+  \item They fully exploit the \texttt{ffmpeg}-based audio processing pipeline
+        developed in this project.
+\end{enumerate}
+
+Static keyframe export is also supported as a by-product of the keyshot selection step.
+
+% ════════════════════════════════════════════════════════════════════════════
+%  CHAPTER 3 -- METHODOLOGY
+% ════════════════════════════════════════════════════════════════════════════
+\chapter{Methodology}
+
+\section{Supervised Learning Framework}
+
+The model learns to approximate human importance judgements:
+\begin{itemize}
+  \item \textbf{Input:} a sequence of multimodal feature vectors
+        $\{x_t\}_{t=1}^{T}$, $x_t \in \mathbb{R}^{1408}$.
+  \item \textbf{Output:} predicted importance scores $\hat{y}_t \in [0,1]$ for each
+        frame $t$.
+  \item \textbf{Ground truth:} $y_t \in [0,1]$, the mean score assigned by 15--20
+        human annotators.
+  \item \textbf{Loss:} L1 (or MSE) loss between $\hat{y}_t$ and $y_t$.
+\end{itemize}
+
+\section{Datasets}
+
+\subsection{SumMe \cite{gygli2014}}
+SumMe is a collection of short, thematically diverse user-generated videos.
+Annotators manually mark important segments; these are converted to frame-level
+importance scores used as ground truth.
+
+\subsection{TVSum \cite{song2015}}
+TVSum is oriented toward ``TV program'' content (news, documentaries, vlogs). Each
+video is annotated by approximately 20 raters; the mean score constitutes the ground
+truth.
+
+\section{Evaluation Metrics}
+
+\begin{itemize}
+  \item \textbf{F-score} (F-measure): measures temporal overlap between the generated
+        summary and the annotator-derived reference summary.
+  \item \textbf{Precision / Recall:}
+        \begin{itemize}
+          \item \emph{Precision} -- proportion of summary content that is genuinely important.
+          \item \emph{Recall} -- proportion of important video content retained in the summary.
+        \end{itemize}
+  \item \textbf{Temporal Overlap:} degree of time-segment overlap between predicted
+        summary segments and ground-truth segments.
+\end{itemize}
+
+% ════════════════════════════════════════════════════════════════════════════
+%  CHAPTER 4 -- PROPOSED ARCHITECTURE
+% ════════════════════════════════════════════════════════════════════════════
+\chapter{Proposed Architecture: Multimodal BiLSTM with Temporal Attention}
+
+\section{BiLSTM Overview}
+
+A \textbf{Bidirectional Long Short-Term Memory (BiLSTM)} network \cite{zhang2016}
+processes the input sequence in both the forward (past) and backward (future) temporal
+directions. For each frame $t$, the hidden state encodes:
+\begin{itemize}
+  \item Context from all preceding frames (forward pass).
+  \item Context from all subsequent frames (backward pass).
+\end{itemize}
+
+Formally, given input sequence $(x_1, \dots, x_T)$ with $x_t \in \mathbb{R}^{1408}$:
+\begin{equation}
+  (h_1, \dots, h_T) = \mathrm{BiLSTM}(x_1, \dots, x_T), \quad h_t \in \mathbb{R}^{2H}
+\end{equation}
+where $H$ is the hidden size per direction (set to $256$, giving
+$h_t \in \mathbb{R}^{512}$).
+
+\section{Temporal Attention}
+
+Temporal attention is applied on top of the BiLSTM outputs to focus the model on
+the most informative time steps:
+\begin{align}
+  e_t      &= \tanh\!\bigl(W_h\, h_t + b_h\bigr) \\
+  \alpha_t &= \operatorname{softmax}\!\bigl(w^{\top} e_t\bigr)
+\end{align}
+The weights $\alpha_t$ modulate each frame's contribution when predicting importance
+scores, effectively down-weighting noisy or redundant segments.
+
+\section{Frame Importance Prediction}
+
+Each hidden state is passed through a linear output layer with sigmoid activation:
+\begin{equation}
+  \hat{y}_t = \sigma\!\bigl(W_o\, h_t + b_o\bigr), \quad \hat{y}_t \in [0,1]
+\end{equation}
+producing the score sequence $\{\hat{y}_t\}_{t=1}^{T}$.
+
+\section{Motivation for BiLSTM}
+
+\begin{itemize}
+  \item \textbf{Long-range context:} frame importance depends on temporal context,
+        not on local content alone.
+  \item \textbf{Bidirectionality:} combining past and future context yields richer
+        representations than a unidirectional LSTM.
+  \item \textbf{Synergy with attention:} attention weights highlight temporally
+        important regions while suppressing irrelevant ones.
+\end{itemize}
+
+% ════════════════════════════════════════════════════════════════════════════
+%  CHAPTER 5 -- AUDIO PROCESSING PIPELINE
+% ════════════════════════════════════════════════════════════════════════════
+\chapter{Audio Processing Pipeline}
+
+\section{Overview}
+
+To go beyond visual features, this project incorporates \textbf{speech-derived
+semantic embeddings} as an additional modality. The pipeline transforms the raw
+audio track into a per-frame feature vector aligned with the visual timeline.
+
+\section{Step-by-Step Pipeline}
+
+\subsection{Step 1 -- Audio Extraction}
+The audio track is extracted from the source video using \texttt{ffmpeg}, producing
+a \texttt{.wav} file.
+
+\subsection{Step 2 -- Automatic Speech Recognition with Whisper}
+OpenAI Whisper \cite{radford2023} transcribes the audio into text segments, each
+accompanied by start and end timestamps:
+\begin{equation*}
+  \text{audio} \;\xrightarrow{\;\text{Whisper}\;}\;
+  \bigl\{(\text{sentence}_k,\; t^{\text{start}}_k,\; t^{\text{end}}_k)\bigr\}_{k=1}^{K}
+\end{equation*}
+
+\subsection{Step 3 -- Sentence Encoding with SentenceBERT}
+Each transcript sentence is encoded into a dense semantic vector using
+SentenceBERT \cite{reimers2019}:
+\begin{equation}
+  a^{\text{text}}_k = \mathrm{SentenceBERT}(\text{sentence}_k) \in \mathbb{R}^{384}
+\end{equation}
+
+\subsection{Step 4 -- Frame-Level Alignment}
+Given the timestamp of each sampled frame $t$, the audio embedding is assigned as:
+\begin{equation}
+  a_t =
+  \begin{cases}
+    a^{\text{text}}_k & \text{if frame } t \text{ falls within }
+                          [t^{\text{start}}_k,\; t^{\text{end}}_k] \\[4pt]
+    \mathbf{0}        & \text{otherwise (silence or no speech)}
+  \end{cases}
+\end{equation}
+This produces an audio feature sequence of shape $[T, 384]$, temporally aligned
+with the visual feature sequence $[T, 1024]$.
+
+\subsection{Step 5 -- Multimodal Feature Fusion}
+Visual and audio features are concatenated at the frame level:
+\begin{equation}
+  x_t = \bigl[v_t;\; a_t\bigr] \in \mathbb{R}^{1408}
+\end{equation}
+The resulting sequence $\{x_t\}_{t=1}^{T}$ is the sole input to the BiLSTM.
+
+\section{Benefits of the Audio Branch}
+\begin{itemize}
+  \item Enables the model to detect semantically rich spoken content (definitions,
+        conclusions, slide titles).
+  \item Complements visual features in low-motion segments where important verbal
+        explanation occurs over a static slide.
+\end{itemize}
+
+% ════════════════════════════════════════════════════════════════════════════
+%  CHAPTER 6 -- TRAINING AND INFERENCE ALGORITHMS
+% ════════════════════════════════════════════════════════════════════════════
+\chapter{Training and Inference Algorithms}
+
+\section{Training Algorithm}
+
+\subsection{Phase 1 -- Data Preprocessing and Feature Extraction}
+
+\paragraph{Visual Features.}
+Frames are sampled at 2\,fps using a \texttt{FrameSampler}. A pre-trained CNN
+(GoogLeNet/ResNet) extracts a feature vector for each frame:
+\begin{equation}
+  v_t = \mathrm{CNN}(f_t) \in \mathbb{R}^{1024}
+\end{equation}
+Features are stored as \texttt{\{video\_id\}.npy} with shape $[T, 1024]$.
+
+Audio features of shape $[T, 384]$ are stored as
+\texttt{\{video\_id\}\_audio.npy}, following the pipeline of Chapter~5.
+
+\subsection{Phase 2 -- Input Construction and Batching}
+
+For each frame $t$: $x_t = [v_t;\, a_t] \in \mathbb{R}^{1408}$.
+Videos longer than \texttt{max\_seq\_len} (e.g., 960 frames) are chunked.
+A \texttt{DataLoader} shuffles videos/segments, pads sequences within each
+mini-batch, and applies loss masking on padding positions.
+
+\subsection{Phase 3 -- Forward Pass}
+
+The sequence $\{x_t\}$ is processed by:
+\begin{enumerate}
+  \item \textbf{BiLSTM encoding} (2 layers, hidden size 256 per direction).
+  \item \textbf{Temporal Attention} to compute per-frame weights $\alpha_t$.
+  \item \textbf{Output projection} to obtain $\hat{y}_t \in [0,1]$.
+\end{enumerate}
+
+\subsection{Phase 4 -- Loss Computation and Optimisation}
+
+\paragraph{Supervised Loss.}
+\begin{equation}
+  \mathcal{L} = \frac{1}{T} \sum_{t=1}^{T} \bigl|\hat{y}_t - y_t\bigr|
+  \quad \text{(L1 loss)}
+\end{equation}
+
+\paragraph{Optimiser.}
+Adam with learning rate $\eta = 0.001$ (configurable via \texttt{config.yaml}).
+Gradients are back-propagated through the BiLSTM, attention, and output layers.
+
+\paragraph{Validation and Early Stopping.}
+After each epoch, the validation loss is computed. The best checkpoint is saved to
+\texttt{checkpoints/best.pt}. Training halts if no improvement is observed for
+\texttt{early\_stopping\_patience} consecutive epochs (triggered at epoch~15 in
+the reported experiment).
+
+\section{Inference Algorithm}
+
+\begin{algorithm}[H]
+\caption{Dynamic Video Summary Generation}
+\begin{algorithmic}[1]
+  \Require Raw video $V$, model weights \texttt{best.pt}, summary ratio $r$
+  \Ensure Dynamic summary $V_{\text{sum}}$
+  \State Extract $\{v_t\}$ and $\{a_t\}$; form $x_t = [v_t; a_t]$
+  \State Load model; forward pass $\Rightarrow \{\hat{y}_t\}_{t=1}^{T}$
+  \State Apply Gaussian smoothing to $\{\hat{y}_t\}$; normalise
+  \State Segment video into contiguous shots
+  \State Score each shot (mean of $\hat{y}_t$ within the shot)
+  \State Select highest-scoring shots: total duration $\approx r \cdot |V|$,
+         with temporal diversity and minimum inter-keyframe gap enforced
+  \State Expand each selected segment boundary by $\pm 1.5$\,s
+  \State Cut and concatenate segments with audio via \texttt{ffmpeg}
+         $\Rightarrow V_{\text{sum}}$
+\end{algorithmic}
+\end{algorithm}
+
+% ════════════════════════════════════════════════════════════════════════════
+%  CHAPTER 7 -- EXPERIMENTAL RESULTS
+% ════════════════════════════════════════════════════════════════════════════
+\chapter{Experimental Results}
+
+\section{Experimental Setup}
+
+The model was trained on \textbf{75 videos} from SumMe and TVSum.
+Key hyperparameters are listed in Table~\ref{tab:hyperparams}.
+
+\begin{table}[H]
+\centering
+\caption{Model hyperparameters}
+\label{tab:hyperparams}
+\begin{tabular}{ll}
+  \toprule
+  \textbf{Parameter} & \textbf{Value} \\
+  \midrule
+  Input dimension      & 1408 (1024 visual + 384 audio) \\
+  LSTM hidden size     & 256 (per direction) \\
+  LSTM layers          & 2 \\
+  Attention            & Temporal Attention \\
+  Optimizer            & Adam \\
+  Learning rate        & 0.001 \\
+  Frame sampling rate  & 2\,fps \\
+  Max sequence length  & 960 frames \\
+  Best checkpoint      & Epoch 15 \\
+  \bottomrule
+\end{tabular}
+\end{table}
+
+\section{Quantitative Results}
+
+Table~\ref{tab:quantitative} reports evaluation metrics on the held-out test split.
+
+\begin{table}[H]
+\centering
+\caption{Quantitative evaluation of the proposed model}
+\label{tab:quantitative}
+\begin{tabular}{lc}
+  \toprule
+  \textbf{Metric} & \textbf{Score} \\
+  \midrule
+  Precision         & 0.4674 \\
+  Recall            & 0.4674 \\
+  F-score           & 0.4674 \\
+  Temporal Overlap  & 0.4222 \\
+  \bottomrule
+\end{tabular}
+\end{table}
+
+\noindent
+\textbf{Note:} A direct comparison with published baselines on SumMe/TVSum
+\cite{apostolidis2021,zhang2016} is planned as the next step; the above figures
+therefore represent preliminary results.
+
+\section{Qualitative Results}
+
+The system was tested on several real-world videos of approximately \textbf{10 minutes},
+producing dynamic summaries of \textbf{2--3 minutes} ($\approx 20$--$30\,\%$ of the
+original). Key observations:
+
+\begin{itemize}
+  \item Selected segments concentrate on regions of high activity, meaningful scene
+        transitions, and dialogue containing core semantic content.
+  \item Shot-based selection combined with Gaussian smoothing and $\pm 1.5$\,s context
+        expansion yields visually coherent, low-jitter summaries.
+  \item The retained audio track ensures smooth, uninterrupted sound without abrupt cuts.
+  \item The overall viewing experience follows the narrative flow of the original video.
+\end{itemize}
+
+% ════════════════════════════════════════════════════════════════════════════
+%  CHAPTER 8 -- FUTURE WORK
+% ════════════════════════════════════════════════════════════════════════════
+\chapter{Future Work}
+
+\section{Extending to Multiple Domains}
+
+\begin{enumerate}
+  \item \textbf{Domain-specific video collection:} news broadcasts, educational
+        lectures (MOOC/tutorial), and surveillance footage.
+  \item \textbf{System evaluation per domain:} apply the current summarization
+        pipeline to generate dynamic summaries and record selected keyshot indices
+        for downstream use.
+\end{enumerate}
+
+\section{Building a Reduced-Dimension Dataset}
+
+The summarized videos serve as a \emph{structurally reduced} version of the original
+corpus. This reduced dataset can train downstream models such as:
+\begin{itemize}
+  \item \textbf{Video classification} (topic labeling of news, lecture type, etc.).
+  \item \textbf{Video-to-text} (captioning or question answering on condensed video).
+\end{itemize}
+
+\section{Downstream Model Integration}
+
+Candidate architectures for training on summarized video:
+\begin{itemize}
+  \item \textbf{TimeSformer} -- a Video Vision Transformer with spatiotemporal
+        attention, well-suited to shorter, denser sequences produced by summarization.
+  \item \textbf{Video Swin Transformer} -- a hierarchical Transformer with 3-D
+        shifted windows.
+  \item \textbf{I3D / 3D-CNN} -- a simpler baseline for rapid empirical validation.
+\end{itemize}
+
+\paragraph{Proposed evaluation protocol.}
+\begin{enumerate}
+  \item Use the summarization system to reduce the original corpus by $\approx 85\,\%$.
+  \item Assign task labels to the summaries.
+  \item Train a downstream model on both original and summarized videos.
+  \item Compare classification accuracy, training time, and GPU memory usage.
+\end{enumerate}
+
+The central hypothesis is that video summarization \textbf{reduces data dimensionality}
+while \textbf{preserving} downstream task performance at lower computational cost.
+
+% ════════════════════════════════════════════════════════════════════════════
+%  CHAPTER 9 -- CONCLUSION
+% ════════════════════════════════════════════════════════════════════════════
+\chapter{Conclusion}
+
+This report presented a \textbf{multimodal video summarization system} based on
+\textbf{BiLSTM with Temporal Attention} \cite{zhang2016}, combining visual CNN features
+with speech-derived semantic embeddings from Whisper \cite{radford2023} and SentenceBERT
+\cite{reimers2019}. The system was trained in a supervised fashion on the SumMe
+\cite{gygli2014} and TVSum \cite{song2015} benchmarks, achieving a preliminary F-score
+of $\approx 0.47$.
+
+Beyond the practical benefit of reducing viewing time, the work demonstrates the role
+of video summarization as \textbf{structured dimensionality reduction} -- retaining
+information-dense content while discarding redundant frames. This positions the
+summarization module as a valuable pre-processing step for downstream video
+understanding tasks (classification, retrieval, captioning).
+
+Future directions include a rigorous comparison with published baselines, extension to
+news and educational domains, and an empirical study of how summarization-based data
+reduction affects the performance and efficiency of modern Transformer-based video
+classifiers such as TimeSformer.
+
+% ════════════════════════════════════════════════════════════════════════════
+%  BIBLIOGRAPHY
+% ════════════════════════════════════════════════════════════════════════════
+\bibliographystyle{IEEEtran}
+
+\begin{thebibliography}{11}
+
+\bibitem{haq2021}
+H.~B. Haq, M.~Asif, M.~B. Ahmad, R.~Ashraf, and T.~Mahmood,
+``Video summarization techniques: A review,''
+\textit{Mathematical Problems in Engineering}, vol.~2021, pp.~1--17, 2021.
+
+\bibitem{money2015}
+A.~G. Money and H.~Agius,
+``A survey on video summarization techniques,''
+\textit{International Journal of Computer Applications}, vol.~118, no.~11,
+pp.~25--31, 2015.
+
+\bibitem{psallidas2021}
+T.~Psallidas, P.~Koromilas, T.~Giannakopoulos, and E.~Spyrou,
+``Multimodal summarization of user-generated videos,''
+\textit{Applied Sciences}, vol.~11, no.~11, p.~5260, 2021.
+
+\bibitem{hu2023}
+S.~Hu, Z.~Liu, J.~Liu, and Z.~Guo,
+``Video summarization based on feature fusion and data augmentation,''
+\textit{Computers}, vol.~12, no.~9, p.~186, 2023.
+
+\bibitem{kadam2022}
+P.~Kadam \textit{et al.},
+``Recent challenges and opportunities in video summarization with machine learning
+algorithms,''
+\textit{IEEE Access}, vol.~10, pp.~122762--122785, 2022.
+
+\bibitem{radford2023}
+A.~Radford \textit{et al.},
+``Robust speech recognition via large-scale weak supervision,''
+in \textit{Proc. 40th Int. Conf. Machine Learning (ICML)}, vol.~202,
+pp.~28492--28518, 2023.
+
+\bibitem{apostolidis2021}
+E.~Apostolidis, E.~Adamantidou, A.~I. Metsai, V.~Mezaris, and I.~Patras,
+``Video summarization using deep neural networks: A survey,''
+\textit{Proc. IEEE}, vol.~109, no.~11, pp.~1838--1863, 2021.
+
+\bibitem{gygli2014}
+M.~Gygli, H.~Grabner, H.~Riemenschneider, and L.~Van Gool,
+``Creating summaries from user videos,''
+in \textit{Computer Vision -- ECCV 2014}, Lecture Notes in Computer Science,
+vol.~8695, Springer, 2014, pp.~505--520.
+
+\bibitem{zhang2016}
+K.~Zhang, W.-L. Chao, F.~Sha, and K.~Grauman,
+``Video summarization with long short-term memory,''
+in \textit{Computer Vision -- ECCV 2016}, Lecture Notes in Computer Science,
+vol.~9911, Springer, 2016, pp.~766--782.
+
+\bibitem{song2015}
+Y.~Song, J.~Vallmitjana, A.~Stent, and A.~Jaimes,
+``TVSum: Summarizing web videos using titles,''
+in \textit{Proc. IEEE Conf. Computer Vision and Pattern Recognition (CVPR)},
+2015, pp.~5179--5187.
+
+\bibitem{reimers2019}
+N.~Reimers and I.~Gurevych,
+``Sentence-BERT: Sentence embeddings using Siamese BERT-networks,''
+in \textit{Proc. 2019 Conf. Empirical Methods in Natural Language Processing
+(EMNLP-IJCNLP)}, Hong Kong, Nov.~2019, pp.~3982--3992.
+
+\end{thebibliography}
+
+\end{document}

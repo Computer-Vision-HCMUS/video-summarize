@@ -175,7 +175,7 @@ Các metric chính:
   - Tập trung vào những vùng thời gian quan trọng.
   - Giảm ảnh hưởng của nhiễu và đoạn ít quan trọng.
 
-#### 6.3. Thuật toán huấn luyện mô hình (chi tiết)
+#### 6.3. Thuật toán huấn luyện mô hình
 
 - **Bước 1 – Tiền xử lý dữ liệu & trích xuất đặc trưng**
   - **B1.1 – Chuẩn bị video và annotation**
