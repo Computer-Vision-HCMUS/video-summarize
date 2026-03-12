@@ -51,11 +51,18 @@ def main() -> None:
     setup_logging()
 
     paths = config.paths
+
+    # Load checkpoint sớm để suy ra đúng input_dim của mô hình
+    ckpt = torch.load(args.checkpoint, map_location="cpu")
+    state_dict = ckpt.get("model_state_dict", ckpt)
+    # lstm.weight_ih_l0 có shape (4*hidden_size, input_dim)
+    lstm_w = state_dict["lstm.weight_ih_l0"]
+    model_input_dim = lstm_w.shape[1]
+
+    # Đọc feature_dim từ dữ liệu (hoặc fallback từ config) để biết chiều thực tế của features trên đĩa
     feature_dim = _feature_dim_from_meta(paths.features_root, config.features.feature_dim)
-    feature_loader = FeatureLoader(
-        paths.features_root,
-        feature_dim=feature_dim,
-    )
+
+    feature_loader = FeatureLoader(paths.features_root, feature_dim=feature_dim)
     label_loader = LabelLoader(paths.labels_root)
     video_ids = _collect_video_ids(Path(paths.features_root), Path(paths.labels_root))
     if not video_ids:
@@ -75,15 +82,14 @@ def main() -> None:
     )
 
     model = BiLSTMSummarizer(
-        input_dim=feature_dim,
+        input_dim=model_input_dim,
         hidden_size=config.model.hidden_size,
         num_layers=config.model.num_layers,
         dropout=config.model.dropout,
         bidirectional=getattr(config.model, "bidirectional", True),
         use_attention=getattr(config.model, "use_attention", True),
     )
-    ckpt = torch.load(args.checkpoint, map_location="cpu")
-    model.load_state_dict(ckpt["model_state_dict"])
+    model.load_state_dict(state_dict)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     model.eval()
@@ -98,6 +104,17 @@ def main() -> None:
             feats, labels, lengths, _ = batch
             feats = feats.to(device)
             lengths = lengths.to(device)
+            # Nếu checkpoint là multimodal (ví dụ 1408) nhưng features hiện tại chỉ là visual (ví dụ 1024),
+            # thì pad thêm các chiều còn thiếu bằng 0 để khớp với input_dim của mô hình.
+            if feats.size(-1) != model_input_dim:
+                if feats.size(-1) < model_input_dim:
+                    pad_dim = model_input_dim - feats.size(-1)
+                    pad = torch.zeros(feats.size(0), feats.size(1), pad_dim, device=feats.device)
+                    feats = torch.cat([feats, pad], dim=-1)
+                else:
+                    # Trường hợp hiếm: features có chiều lớn hơn model_input_dim → cắt bớt cho khớp checkpoint
+                    feats = feats[..., :model_input_dim]
+
             scores, _ = model(feats, lengths)
             for i in range(feats.size(0)):
                 length = lengths[i].item()
