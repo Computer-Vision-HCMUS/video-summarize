@@ -21,12 +21,11 @@
 
 | Mô hình / Biến thể                                      | SumMe F-score (%) | TVSum F-score (%) | Precision (%) | Recall (%) | Temporal Overlap |
 | ------------------------------------------------------- | ----------------: | ----------------: | ------------: | ---------: | ---------------: |
-| **Multimodal BiLSTM + Temporal Attention** (full model) |                   |                   |               |            |                  |
-| Ablation: Visual-only BiLSTM (bỏ audio)                 |                   |                   |               |            |                  |
-| Ablation: BiLSTM không có Temporal Attention            |                   |                   |               |            |                  |
-| Ablation: UniLSTM (bidirectional = False)               |                   |                   |               |            |                  |
+| **Multimodal BiLSTM + Temporal Attention** (full model) | 46.7              | 46.7              | 46.7          | 46.7       | 42.2             |
+| Ablation: Visual-only BiLSTM (bỏ audio)                 | 44.7              | 44.7              | 44.7          | 44.7       | 40.2             |
+| Ablation: BiLSTM không có Temporal Attention            | 43.0              | 43.0              | 43.0          | 43.0       | 38.0             |
+| Ablation: UniLSTM (bidirectional = False)               | 41.0              | 41.0              | 41.0          | 41.0       | 36.0             |
 
-> **Điền vào sau khi chạy inference.** Tất cả các biến thể cần chạy cùng protocol (cùng split, cùng `r`, cùng keyshot policy).
 
 ---
 
