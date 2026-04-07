@@ -1,26 +1,17 @@
-\documentclass[12pt,a4paper]{article}
+\documentclass[10pt,conference]{IEEEtran}
 
 % ── Packages ─────────────────────────────────────────────────────────────────
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-
-\usepackage[margin=2.5cm]{geometry}
 \usepackage{amsmath,amssymb,bm}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{array}
 \usepackage{multirow}
-\usepackage{longtable}
 \usepackage{xcolor}
 \usepackage{hyperref}
 \usepackage{enumitem}
-\usepackage{titlesec}
 \usepackage{caption}
-\usepackage{subcaption}
-\usepackage{fancyhdr}
-\usepackage{setspace}
-\usepackage{parskip}
-
 \usepackage{float}
 \usepackage{cite}
 \usepackage{url}
@@ -32,76 +23,57 @@
   citecolor=green!50!black,
   urlcolor=blue!70!black,
   pdftitle={Multimodal Video Summarization via Supervised Learning},
-  pdfauthor={},
 }
-
-% ── Header / Footer ───────────────────────────────────────────────────────────
-\pagestyle{fancy}
-\fancyhf{}
-\rhead{\small Multimodal Video Summarization}
-\lhead{\small BiLSTM + Temporal Attention}
-\cfoot{\thepage}
-
-% ── Section title formatting ──────────────────────────────────────────────────
-\titleformat{\section}{\large\bfseries}{\thesection.}{0.5em}{}
-\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection.}{0.5em}{}
-\titleformat{\subsubsection}{\normalsize\itshape}{\thesubsubsection.}{0.5em}{}
 
 % ── Math operators ────────────────────────────────────────────────────────────
 \DeclareMathOperator{\sigmoid}{\sigma}
 
-% ─────────────────────────────────────────────────────────────────────────────
+% =============================================================================
 \begin{document}
 
-% ── Title page ────────────────────────────────────────────────────────────────
-\begin{titlepage}
-  \centering
-  \vspace*{1.5cm}
-  {\LARGE\bfseries Multimodal Video Summarization via Supervised Learning:\\[0.4em]
-  Multimodal BiLSTM with Temporal Attention\par}
-  \vspace{0.6cm}
-  {\large and Evaluation of the VideoIntel Content Analysis Application\par}
-  \vspace{1.5cm}
+% ── Title ─────────────────────────────────────────────────────────────────────
+\title{Multimodal Video Summarization via Supervised Learning:\\
+Multimodal BiLSTM with Temporal Attention\\
+{\large and Evaluation of the VideoIntel Content Analysis Application}}
 
-  % ── Authors ──────────────────────────────────────────────────────────────
-  {\large
-  \begin{tabular}{rl}
-    \textbf{Group Member}      & Student ID \\ [4pt]
-    \textbf{Tran Hai Duc}      & 23127173 \\[4pt]
-    \textbf{Nguyen Cong Chien} & 23127331 \\
-  \end{tabular}\par}
-  \vspace{1cm}
-  \rule{0.8\linewidth}{0.4pt}
-  \vspace{1cm}
+\author{
+  \IEEEauthorblockN{Tran Hai Duc}
+  \IEEEauthorblockA{
+    Student ID: 23127173\\
+    University of Science, VNU-HCM\\
+    thduc23@clc.fitus.edu.vn
+  }
+  \and
+  \IEEEauthorblockN{Nguyen Cong Chien}
+  \IEEEauthorblockA{
+    Student ID: 23127331\\
+    University of Science, VNU-HCM\\
+    ncchien23@clc.fitus.edu.vn
+  }
+}
 
-  \begin{abstract}
-  \noindent
-  This report presents a supervised video summarization method evaluated on the
-  SumMe and TVSum benchmarks. Visual features are extracted with a ResNet-50
-  backbone, while semantic speech features are obtained from Whisper automatic
-  speech recognition and SentenceBERT sentence encodings. A two-layer
-  Bidirectional LSTM (BiLSTM) combined with a Temporal Attention mechanism
-  produces per-frame importance scores. Inference follows a fixed summary ratio
-  of $r{=}0.35$ with Gaussian smoothing, shot segmentation, and boundary
-  expansion to assemble the final dynamic summary. A complementary evaluation
-  uses the VideoIntel application---built on CLIP, Whisper, and a local
-  LLM---to measure the retention of search and question-answering capabilities
-  when the original video is replaced by its summary. All content is
-  self-contained; no external source files are required.
+\maketitle
 
-  \medskip
-  \noindent\textbf{Keywords.}
-  video summarization, supervised learning, BiLSTM, temporal attention,
-  multimodal, SumMe, TVSum, CLIP, Whisper, video question answering.
-  \end{abstract}
+% ── Abstract ──────────────────────────────────────────────────────────────────
+\begin{abstract}
+This report presents a supervised video summarization method evaluated on the
+SumMe and TVSum benchmarks. Visual features are extracted with a ResNet-50
+backbone, while semantic speech features are obtained from Whisper automatic
+speech recognition and SentenceBERT sentence encodings. A two-layer
+Bidirectional LSTM (BiLSTM) combined with a Temporal Attention mechanism
+produces per-frame importance scores. Inference follows a fixed summary ratio
+of $r{=}0.35$ with Gaussian smoothing, shot segmentation, and boundary
+expansion to assemble the final dynamic summary. A complementary evaluation
+uses the VideoIntel application---built on CLIP, Whisper, and a local
+LLM---to measure the retention of search and question-answering capabilities
+when the original video is replaced by its summary. All content is
+self-contained; no external source files are required.
+\end{abstract}
 
-  \rule{0.8\linewidth}{0.4pt}
-  \vfill
-\end{titlepage}
-
-% ── Table of Contents ─────────────────────────────────────────────────────────
-\tableofcontents
-\newpage
+\begin{IEEEkeywords}
+video summarization, supervised learning, BiLSTM, temporal attention,
+multimodal, SumMe, TVSum, CLIP, Whisper, video question answering
+\end{IEEEkeywords}
 
 % =============================================================================
 \section{Introduction}
@@ -112,8 +84,7 @@
 \textbf{Video summarization} aims to produce a condensed representation of an
 original video that preserves its key content and narrative flow. Two common
 output forms are distinguished:
-
-\begin{itemize}[leftmargin=1.8em]
+\begin{itemize}
   \item \textbf{Static summaries:} a selected set of representative keyframes
         or key shots.
   \item \textbf{Dynamic summaries:} a shorter video file assembled from
@@ -137,8 +108,7 @@ slides accompanied by narration.
 \subsection{Contributions}
 
 The specific contributions of this report are:
-
-\begin{enumerate}[leftmargin=2em]
+\begin{enumerate}
   \item A \textbf{multimodal supervised video summarization} pipeline trained
         on \textbf{SumMe} and \textbf{TVSum}, combining visual and speech
         features.
@@ -183,8 +153,7 @@ downstream evaluation references.
 % =============================================================================
 
 \subsection{Input}
-
-\begin{itemize}[leftmargin=1.8em]
+\begin{itemize}
   \item An input video $V$ in a standard format, of arbitrary duration.
   \item During training: for each sampled time step $t \in \{1,\dots,T\}$, a
         scalar importance label $y_t \in [0,1]$ derived from SumMe/TVSum
@@ -192,8 +161,7 @@ downstream evaluation references.
 \end{itemize}
 
 \subsection{Output}
-
-\begin{itemize}[leftmargin=1.8em]
+\begin{itemize}
   \item \textbf{Static summary (auxiliary):} a set of selected keyframes or
         shots.
   \item \textbf{Dynamic summary (primary):} a video $V_{\mathrm{sum}}$ with
@@ -222,7 +190,7 @@ vector:
     \mathbf{v}_t \\ \mathbf{a}_t
   \end{bmatrix}
   \in \mathbb{R}^{D_v + D_a},
-  \qquad D_v = 2048,\; D_a = 384,\; D_v + D_a = 2432.
+  \quad D_v = 2048,\; D_a = 384,\; D_v + D_a = 2432.
 \end{equation}
 Here $\mathbf{v}_t$ is the CNN visual feature (ResNet-50) and $\mathbf{a}_t$
 is the temporally aligned semantic speech feature (Section~\ref{sec:audio}).
@@ -243,12 +211,10 @@ threshold~0.5 to obtain $\tilde{y}_t \in \{0,1\}$ for loss computation
   \Bigr].
   \label{eq:bce}
 \end{equation}
-Embedding the sigmoid inside the logits-form loss improves numerical
-stability.
 
 \subsection{Bidirectional LSTM (BiLSTM)}
 
-Given the input sequence $\mathbf{X} = (\mathbf{x}_1,\dots,\mathbf{x}_T)$, a
+Given input sequence $\mathbf{X} = (\mathbf{x}_1,\dots,\mathbf{x}_T)$, a
 forward LSTM produces $\overrightarrow{\mathbf{h}}_t \in \mathbb{R}^{H}$ and a
 backward LSTM produces $\overleftarrow{\mathbf{h}}_t \in \mathbb{R}^{H}$,
 with $H = 256$. The concatenated hidden state is:
@@ -259,7 +225,7 @@ with $H = 256$. The concatenated hidden state is:
 \end{equation}
 Two stacked BiLSTM layers deepen the representation; each layer reads the
 sequence in \textbf{both temporal directions}, so the importance estimate at
-time $t$ can depend on both past and future context.
+time $t$ depends on both past and future context.
 
 \subsection{Temporal Attention}
 
@@ -267,7 +233,7 @@ Let $\mathbf{H} = [\mathbf{h}_1,\dots,\mathbf{h}_T] \in \mathbb{R}^{T \times 512
 Attention scores and weights are computed as:
 \begin{equation}
   e_t = \mathbf{u}^\top \tanh(\mathbf{W}_a \mathbf{h}_t + \mathbf{b}_a),
-  \qquad
+  \quad
   \alpha_t = \frac{\exp(e_t)}{\sum_{k=1}^{T}\exp(e_k)}.
 \end{equation}
 A globally pooled context vector is:
@@ -275,9 +241,7 @@ A globally pooled context vector is:
   \mathbf{c} = \sum_{t=1}^{T} \alpha_t\, \mathbf{h}_t.
 \end{equation}
 To retain a \textbf{per-frame logit} for shot selection, $\mathbf{h}_t$ is
-combined with $\mathbf{c}$ (via concatenation or a linear projection in the
-implementation). The attention module suppresses noise and emphasizes
-temporally informative regions.
+combined with $\mathbf{c}$ via concatenation or a linear projection.
 
 \subsection{Output Logit Layer}
 
@@ -285,13 +249,11 @@ temporally informative regions.
   z_t = \mathbf{w}_o^\top \mathbf{h}_t^{\mathrm{out}} + b_o,
 \end{equation}
 where $\mathbf{h}_t^{\mathrm{out}}$ is the post-attention representation.
-Sigmoid is \emph{not} applied at the network output; it is incorporated in the
-loss (Equation~\ref{eq:bce}) and applied at inference as
-$\hat{y}_t = \sigma(z_t)$.
+Sigmoid is applied at inference as $\hat{y}_t = \sigma(z_t)$.
 
 \subsection{Datasets and Evaluation Metrics}
 
-\begin{itemize}[leftmargin=1.8em]
+\begin{itemize}
   \item \textbf{SumMe}~\cite{gygli2014}: per-frame importance labels from
         multiple annotators.
   \item \textbf{TVSum}~\cite{song2015}: per-segment importance labels from
@@ -303,8 +265,6 @@ $\hat{y}_t = \sigma(z_t)$.
   \item \textbf{Temporal overlap}: temporal intersection ratio between
         predicted and ground-truth segments.
 \end{itemize}
-Metric definitions follow a single evaluation protocol applied uniformly to
-the full model and all ablations.
 
 % =============================================================================
 \section{Pipeline: Model Architecture and Forward Pass}
@@ -314,25 +274,21 @@ the full model and all ablations.
 \subsection{Module Overview}
 
 The data-flow pipeline is as follows:
-
-\begin{enumerate}[leftmargin=2em]
-  \item \textbf{Frame sampling} at a fixed rate (2\,fps); sequence length
-        capped at \texttt{max\_seq\_len}$\,{=}\,960$ frames ($\approx$8 min).
+\begin{enumerate}
+  \item \textbf{Frame sampling} at 2\,fps; sequence length capped at
+        \texttt{max\_seq\_len}$\,{=}\,960$ frames ($\approx$8\,min).
   \item \textbf{Visual backbone:} ResNet-50 extracts
         $\mathbf{v}_t \in \mathbb{R}^{2048}$.
-  \item \textbf{Audio-language branch:} audio extracted via \texttt{ffmpeg}
-        $\to$ Whisper $\to$ timestamped sentences $\to$ SentenceBERT $\to$
-        $\mathbf{a}_t$ (Section~\ref{sec:audio}).
+  \item \textbf{Audio-language branch:} \texttt{ffmpeg} $\to$ Whisper $\to$
+        SentenceBERT $\to$ $\mathbf{a}_t$ (Section~\ref{sec:audio}).
   \item \textbf{Feature concatenation:}
         $\mathbf{x}_t = [\mathbf{v}_t;\, \mathbf{a}_t] \in \mathbb{R}^{2432}$.
   \item \textbf{Two-layer BiLSTM}, hidden size 256 per direction
         $\to$ $\mathbf{h}_t \in \mathbb{R}^{512}$.
   \item \textbf{Temporal Attention} $\to$ linear head $\to$ $z_t$.
-  \item Training loss: \textbf{BCEWithLogitsLoss}; optimizer: \textbf{AdamW};
+  \item Loss: \textbf{BCEWithLogitsLoss}; optimizer: \textbf{AdamW};
         scheduler: \textbf{StepLR}.
 \end{enumerate}
-
-The best checkpoint is saved as \texttt{checkpoints/best.pt}.
 
 \subsection{Tensor Shapes and Batching}
 
@@ -344,7 +300,7 @@ positions. Each valid time step carries a 2432-dimensional input.
 
 \begin{table}[h]
 \centering
-\caption{Ablation variants and their architectural differences.}
+\caption{Ablation Variants and Architectural Differences}
 \label{tab:ablations}
 \begin{tabular}{ll}
 \toprule
@@ -352,7 +308,7 @@ positions. Each valid time step carries a 2432-dimensional input.
 \midrule
 Full model   & $\mathbf{x}_t = [\mathbf{v}_t;\mathbf{a}_t]$, with Temporal Attention \\
 Visual-only  & Drop $\mathbf{a}_t$; reduced input dimension \\
-No Attention & Remove Temporal Attention block; BiLSTM + linear head only \\
+No Attention & Remove Temporal Attention; BiLSTM + linear head only \\
 UniLSTM      & \texttt{bidirectional=False}; single-direction LSTM \\
 \bottomrule
 \end{tabular}
@@ -370,28 +326,24 @@ UniLSTM      & \texttt{bidirectional=False}; single-direction LSTM \\
 
 \subsection{Automatic Speech Recognition (Whisper)}
 
-Whisper~\cite{radford2023whisper} produces a sequence of
-\textbf{sentence/segment tokens} each carrying a start and end timestamp
-$(t_k^{\mathrm{start}}, t_k^{\mathrm{end}})$ and raw transcript text.
+Whisper~\cite{radford2023whisper} produces \textbf{sentence/segment tokens}
+each carrying timestamps $(t_k^{\mathrm{start}}, t_k^{\mathrm{end}})$ and raw
+transcript text.
 
 \subsection{SentenceBERT Encoding}
 
 Each transcript segment is encoded into
 $\mathbf{s}_k \in \mathbb{R}^{384}$ using SentenceBERT~\cite{reimers2019}.
-The set $\{\mathbf{s}_k\}$ is associated with the corresponding time intervals.
 
 \subsection{Frame-Level Alignment}
 
-For each sampled frame index $t$ at absolute time $T_t$:
-\begin{itemize}[leftmargin=1.8em]
-  \item If $T_t \in [t_k^{\mathrm{start}}, t_k^{\mathrm{end}}]$ for some
-        segment $k$, assign $\mathbf{a}_t = \mathbf{s}_k$.
-  \item If no segment covers $T_t$: assign $\mathbf{a}_t = \mathbf{0}$ (zero
-        vector) or interpolate from the nearest segment.
+For each sampled frame at absolute time $T_t$:
+\begin{itemize}
+  \item If $T_t \in [t_k^{\mathrm{start}}, t_k^{\mathrm{end}}]$, assign
+        $\mathbf{a}_t = \mathbf{s}_k$.
+  \item Otherwise: assign $\mathbf{a}_t = \mathbf{0}$ or interpolate from
+        the nearest segment.
 \end{itemize}
-This ensures every $\mathbf{x}_t$ simultaneously reflects
-\textbf{visual content} and \textbf{spoken content} at the same temporal
-position.
 
 \subsection{Feature Fusion}
 
@@ -407,10 +359,9 @@ speech segments} even when the visual signal is relatively static.
 
 \subsection{Training (Offline)}
 
-\begin{enumerate}[leftmargin=2em]
-  \item \textbf{Pre-processing and feature extraction:} sample at 2\,fps;
-        ResNet-50 $\to$ save visual feature tensors per video; Whisper +
-        SentenceBERT $\to$ save temporally aligned audio-text features.
+\begin{enumerate}
+  \item \textbf{Pre-processing:} sample at 2\,fps; ResNet-50 $\to$ visual
+        tensors; Whisper + SentenceBERT $\to$ aligned audio-text features.
   \item \textbf{Construct} $\mathbf{x}_t$ sequences; build padded/masked
         batches.
   \item \textbf{Forward pass:} $\mathbf{x}_{1:T} \to$ BiLSTM $\to$ Attention
@@ -422,28 +373,18 @@ speech segments} even when the visual signal is relatively static.
 
 \subsection{Inference on a New Video}
 
-\begin{enumerate}[leftmargin=2em]
+\begin{enumerate}
   \item Extract $\{\mathbf{v}_t\}$ and $\{\mathbf{a}_t\}$ as in training.
   \item Forward pass $\to$ $\hat{y}_t = \sigma(z_t)$.
-  \item \textbf{Gaussian smoothing} with a configured $\sigma$ to reduce
-        temporal noise.
-  \item \textbf{Shot segmentation} via \texttt{keyshot.py} with parameters:
-        \texttt{shot\_len}, \texttt{min\_shot\_len}, \texttt{min\_gap},
-        \texttt{diversity}.
-  \item \textbf{Shot selection} such that total duration
-        $\approx r \cdot |V|$, $r = 0.35$.
-  \item \textbf{Boundary expansion} of $\pm 1.5$\,s per selected segment
-        to avoid mid-context cuts; merge nearby segments if needed.
+  \item \textbf{Gaussian smoothing} to reduce temporal noise.
+  \item \textbf{Shot segmentation} via \texttt{keyshot.py}.
+  \item \textbf{Shot selection} such that total duration $\approx r \cdot
+        |V|$, $r = 0.35$.
+  \item \textbf{Boundary expansion} of $\pm 1.5$\,s per selected segment;
+        merge nearby segments if needed.
   \item \texttt{ffmpeg} cuts and concatenates segments into
         $V_{\mathrm{sum}}$ with full audio.
 \end{enumerate}
-
-\subsection{Connection to Quantitative Evaluation}
-
-F-score, Precision, Recall, and Temporal Overlap are computed on the test set
-by converting $\hat{y}_t$ (subject to segment selection constraints) into a
-binary frame/segment mask and comparing against ground truth---using the
-\textbf{same protocol} for the full model and all ablations.
 
 % =============================================================================
 \section{Hyperparameters and Experimental Configuration}
@@ -451,26 +392,23 @@ binary frame/segment mask and comparing against ground truth---using the
 
 \begin{table}[h]
 \centering
-\caption{Hyperparameters and experimental configuration.}
+\caption{Hyperparameters and Experimental Configuration}
 \label{tab:hyperparams}
 \begin{tabular}{ll}
 \toprule
 \textbf{Component} & \textbf{Value / Notes} \\
 \midrule
-Checkpoint              & \texttt{checkpoints/best.pt} \\
-Architecture            & Multimodal BiLSTM + Temporal Attention \\
-Visual backbone         & ResNet-50, $D_v = 2048$ \\
-Audio-text features     & Whisper + SentenceBERT, $D_a = 384$ \\
-Full input dimension    & $2432 = 2048 + 384$ \\
-Frame sampling          & 2\,fps, \texttt{max\_seq\_len} = 960 \\
-Smoothing               & Gaussian, $\sigma$ from config file \\
-Summary ratio           & $r = 0.35$ \\
-Shot segmentation       & \texttt{keyshot.py} (\texttt{shot\_len}, \texttt{min\_shot\_len}, \\
-                        & \texttt{min\_gap}, \texttt{diversity}) \\
-Boundary expansion      & $\pm 1.5$\,s \\
-Loss                    & BCEWithLogitsLoss \\
-Optimizer               & AdamW, lr $= 10^{-3}$, weight decay $= 10^{-5}$ \\
-Scheduler               & StepLR (step\_size$\,{=}\,15$, $\gamma{=}0.5$) \\
+Architecture         & Multimodal BiLSTM + Temporal Attention \\
+Visual backbone      & ResNet-50, $D_v = 2048$ \\
+Audio-text features  & Whisper + SentenceBERT, $D_a = 384$ \\
+Input dimension      & $2432 = 2048 + 384$ \\
+Frame sampling       & 2\,fps, \texttt{max\_seq\_len} = 960 \\
+Smoothing            & Gaussian, $\sigma$ from config file \\
+Summary ratio        & $r = 0.35$ \\
+Boundary expansion   & $\pm 1.5$\,s \\
+Loss                 & BCEWithLogitsLoss \\
+Optimizer            & AdamW, lr $= 10^{-3}$, wd $= 10^{-5}$ \\
+Scheduler            & StepLR (step$\,{=}\,15$, $\gamma{=}0.5$) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -479,225 +417,158 @@ Scheduler               & StepLR (step\_size$\,{=}\,15$, $\gamma{=}0.5$) \\
 \section{Experimental Results and Comparison with the Literature}
 % =============================================================================
 
-\subsection{Results on the Implemented System (Full Model and Ablations)}
+\subsection{Results on the Implemented System}
 
-Table~\ref{tab:ablation_results} shows the measured performance (in \%) for
-the full model and ablation variants.
+Table~\ref{tab:ablation_results} shows performance for the full model and
+ablation variants.
 
 \begin{table}[h]
 \centering
-\caption{F-score, Precision, Recall, and Temporal Overlap for the full model
-and ablation variants (all values in \%).}
+\caption{F-Score, Precision, Recall, and Temporal Overlap (\%)}
 \label{tab:ablation_results}
 \begin{tabular}{lcccc}
 \toprule
 \textbf{Model / Variant} & \textbf{SumMe F} & \textbf{TVSum F} & \textbf{Prec.} & \textbf{Rec.} \\
 \midrule
-\textbf{Multimodal BiLSTM + Temporal Attention} & \textbf{46.7} & \textbf{46.7} & \textbf{46.7} & \textbf{46.7} \\
-Ablation: visual-only (no audio)                & 44.7 & 44.7 & 44.7 & 44.7 \\
-Ablation: no Temporal Attention                 & 43.0 & 43.0 & 43.0 & 43.0 \\
-Ablation: UniLSTM (unidirectional)              & 41.0 & 41.0 & 41.0 & 41.0 \\
+\textbf{Full model (Ours)} & \textbf{46.7} & \textbf{46.7} & \textbf{46.7} & \textbf{46.7} \\
+Visual-only (no audio)     & 44.7 & 44.7 & 44.7 & 44.7 \\
+No Temporal Attention      & 43.0 & 43.0 & 43.0 & 43.0 \\
+UniLSTM (unidirectional)   & 41.0 & 41.0 & 41.0 & 41.0 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\noindent\textit{Temporal overlap values:} Full model 42.2\%, visual-only
-40.2\%, no Attention 38.0\%, UniLSTM 36.0\%.
+\textit{Temporal overlap:} Full model 42.2\%, visual-only 40.2\%, no
+Attention 38.0\%, UniLSTM 36.0\%.
 
-\medskip\noindent\textbf{Observations:}
-\begin{itemize}[leftmargin=1.8em]
+Key observations:
+\begin{itemize}
   \item The \textbf{audio-language branch} improves F-score by
-        \textbf{+2.0\,pp} (46.7 vs.\ 44.7) and temporal overlap by
-        \textbf{+2.0\,pp} compared to the visual-only model, consistent with
-        the hypothesis that speech compensates for visually static segments.
-  \item \textbf{Temporal Attention} contributes \textbf{+3.7\,pp} F-score
-        over BiLSTM without attention (46.7 vs.\ 43.0).
-  \item \textbf{Bidirectionality} yields \textbf{+5.7\,pp} F-score over the
-        unidirectional LSTM (46.7 vs.\ 41.0).
+        \textbf{+2.0\,pp} (46.7 vs.\ 44.7).
+  \item \textbf{Temporal Attention} contributes \textbf{+3.7\,pp} over
+        BiLSTM without attention.
+  \item \textbf{Bidirectionality} yields \textbf{+5.7\,pp} over
+        unidirectional LSTM.
 \end{itemize}
 
 \subsection{Comparison with Published Methods}
 
-Table~\ref{tab:literature} reports F-score values (\%) as published in the
-respective papers. \textbf{Direct numerical comparison should be made
-cautiously}: results depend heavily on (i) dataset split/protocol, (ii)
-summary ratio $r$, and (iii) smoothing and shot-grouping strategies.
-
 \begin{table}[h]
 \centering
-\caption{Comparison with published methods on SumMe and TVSum (F-score, \%).}
+\caption{Comparison with Published Methods on SumMe and TVSum (F-Score, \%)}
 \label{tab:literature}
-\small
-\begin{tabular}{llllcc}
+\begin{tabular}{lllcc}
 \toprule
-\# & \textbf{Method} & \textbf{Year} & \textbf{Type} & \textbf{SumMe} & \textbf{TVSum} \\
+\textbf{Method} & \textbf{Year} & \textbf{Type} & \textbf{SumMe} & \textbf{TVSum} \\
 \midrule
-1  & vsLSTM~\cite{zhang2016lstm}      & 2016 & Supervised   & 37.6 & 54.2 \\
-2  & dppLSTM~\cite{zhang2016lstm}     & 2016 & Supervised   & 38.6 & 54.7 \\
-3  & SUM-GAN~\cite{mahasseni2017}     & 2017 & Unsupervised & 38.7 & 50.8 \\
-4  & Cycle-SUM~\cite{zhang2019}       & 2019 & Unsupervised & 41.9 & 57.6 \\
-5  & VASNet~\cite{fajtl2018}          & 2018 & Supervised   & 49.6 & 61.4 \\
-6  & DSNet~\cite{zhu2021dsnet}        & 2020 & Supervised   & 51.2 & 61.9 \\
-7  & MSVA~\cite{ghauri2021}           & 2021 & Supervised   & 53.4 & 61.5 \\
-8  & PGL-SUM~\cite{apostolidis2021pgl}& 2021 & Supervised   & 57.1 & 62.7 \\
-9  & SUM-GDA                          & 2020 & ---          & 56.3 & 60.7 \\
-10 & MHSCNet~\cite{zhu2022}           & 2022 & Supervised   & ---  & ---  \\
+vsLSTM~\cite{zhang2016lstm}       & 2016 & Supervised   & 37.6 & 54.2 \\
+dppLSTM~\cite{zhang2016lstm}      & 2016 & Supervised   & 38.6 & 54.7 \\
+SUM-GAN~\cite{mahasseni2017}      & 2017 & Unsupervised & 38.7 & 50.8 \\
+Cycle-SUM~\cite{zhang2019}        & 2019 & Unsupervised & 41.9 & 57.6 \\
+VASNet~\cite{fajtl2018}           & 2018 & Supervised   & 49.6 & 61.4 \\
+DSNet~\cite{zhu2021dsnet}         & 2020 & Supervised   & 51.2 & 61.9 \\
+MSVA~\cite{ghauri2021}            & 2021 & Supervised   & 53.4 & 61.5 \\
+PGL-SUM~\cite{apostolidis2021pgl} & 2021 & Supervised   & 57.1 & 62.7 \\
+SUM-GDA                           & 2020 & ---          & 56.3 & 60.7 \\
 \midrule
--- & \textbf{This work}               & ---  & Supervised   & \textbf{46.7} & \textbf{46.7} \\
+\textbf{This work}                & ---  & Supervised   & \textbf{46.7} & \textbf{46.7} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\noindent\textit{Note on this work's configuration:} $r{=}0.35$, Gaussian
-smoothing, boundary expansion $\pm 1.5$\,s.
+\textit{Configuration:} $r{=}0.35$, Gaussian smoothing, boundary expansion
+$\pm 1.5$\,s. Direct comparison should be made cautiously due to differences
+in dataset splits, summary ratios, and post-processing strategies.
 
 \subsection{Comparison with Initial Target Metrics}
 
-The initial target metrics were $\ge 0.43$ F-score on SumMe and $\ge 0.55$ on
-TVSum. The measured full-model F-score of \textbf{0.467} surpasses the SumMe
-threshold. The TVSum result of 0.467, however, falls below the 0.55 reference
-under the same unit convention. This gap underscores the strong influence of
-\textbf{evaluation protocol and pre-processing}; improving TVSum performance
-may require adjusted splits, data augmentation, or a loss function specialized
-for the ``TV program'' domain.
+The initial targets were $\ge 0.43$ F-score on SumMe and $\ge 0.55$ on TVSum.
+The full-model F-score of \textbf{0.467} surpasses the SumMe threshold. The
+TVSum result of 0.467 falls below 0.55, highlighting the strong influence of
+evaluation protocol and pre-processing.
 
 % =============================================================================
 \section{VideoIntel Content Analysis Application}
 % =============================================================================
 
-This section describes the \textbf{VideoIntel} (VSE-app) application, designed
-to answer: \textit{when the original video is replaced by its summary, how well
-do content analysis tasks (search, Q\&A) retain their quality?}
-
 \subsection{Motivation and Operating Hypotheses}
 
 The summarization pipeline produces a \textbf{shorter, lighter} file, but may:
-\begin{enumerate}[leftmargin=2em]
-  \item \textbf{Reduce cost:} transcription and processing time decrease with
-        shorter audio.
-  \item \textbf{Reduce information:} loss of speech segments, scenes, or
-        off-topic selection $\to$ \textbf{semantic drift}.
+\begin{enumerate}
+  \item \textbf{Reduce cost:} transcription time decreases with shorter audio.
+  \item \textbf{Reduce information:} loss of speech segments or off-topic
+        selection $\to$ \textbf{semantic drift}.
 \end{enumerate}
-VideoIntel measures both effects in parallel on \textbf{(original, summary)
-video pairs} using the same pipeline: indexing $\to$ Search $\to$ Q\&A.
+VideoIntel measures both effects on \textbf{(original, summary) video pairs}
+using: indexing $\to$ Search $\to$ Q\&A.
 
-\medskip\noindent\textbf{Technical assumptions:}
-\begin{itemize}[leftmargin=1.8em]
-  \item \textbf{CLIP} (ViT-B/32, OpenAI weights) provides a shared embedding
-        space for text queries and video frames; text segments are also encoded
-        with the CLIP text encoder for similarity ranking (cosine, not BM25).
-  \item \textbf{Whisper} provides transcripts as a proxy for speech content.
-  \item The \textbf{local LLM (Ollama)} relies solely on the transcript within
-        its context window; an overly short or off-topic transcript can cause
-        \textbf{hallucination}, which should be distinguished from application
-        interface errors.
-\end{itemize}
+Technical assumptions: \textbf{CLIP} (ViT-B/32) provides a shared embedding
+space for text and frames; \textbf{Whisper} provides transcripts; the
+\textbf{local LLM (Ollama)} relies solely on the transcript---a short or
+off-topic transcript can cause \textbf{hallucination}.
 
 \subsection{Search Task}
 
-\textbf{Input:} a pre-built index (CLIP vectors of keyframes + encoded
-transcript segments) and a UTF-8 query string; parameter \texttt{top\_k}
-(e.g., 5 per branch).
-
-\textbf{Output:}
-\begin{itemize}[leftmargin=1.8em]
-  \item \textbf{Visual matches:} keyframes with timestamp, image, raw cosine
-        score, and min--max normalized score within top-$k$.
-  \item \textbf{Text matches:} transcript segments with the highest cosine
-        similarity to the query.
-\end{itemize}
-
-\textbf{Scoring:}
+The scoring scheme is:
 \begin{equation}
   \mathbf{q} = \mathrm{CLIP}_{\text{text}}(q),\quad
   \mathbf{v}_i = \mathrm{CLIP}_{\text{image}}(\text{frame}_i),\quad
   \mathrm{score}_i = \mathbf{q} \cdot \mathbf{v}_i.
 \end{equation}
-For text segment $j$:
-$\mathbf{t}_j = \mathrm{CLIP}_{\text{text}}(\text{segment}_j)$,
-$\mathrm{score}_j = \mathbf{q} \cdot \mathbf{t}_j$.
-
-\textbf{Comparison with original:} when the same number of keyframes $N$ is
-sampled uniformly across all frames, a shorter video yields a
-\textbf{sparser temporal sampling} on the original time axis. Three fixed
-English queries benchmark CLIP top-1 score across all frame vectors to
-estimate the \textbf{visual representativeness} of the summary.
+Three fixed English queries benchmark CLIP top-1 score to estimate
+\textbf{visual representativeness}: ``Person Speaking'' (PS), ``Important
+Event'' (IE), and ``Diagram or Chart'' (DC).
 
 \subsection{Q\&A Task}
 
-\textbf{In-app:} the system prompt contains metadata (filename, duration,
-keyframe count) and a transcript truncated to a character limit (e.g., 6000);
-the user asks freely; Ollama responds with recommended timestamps.
-
-\textbf{Benchmark protocol:} one fixed question (in Vietnamese) is posed to
-every video: \textit{``Please describe the overall content of this video based
-on the transcript. Answer in Vietnamese, approximately 3--5 sentences.''}
-Transcript input is limited equivalently to the in-app cutoff; generation is
-capped (e.g., 512 tokens) for fair comparison between original and summary.
-
-\subsection{VideoIntel Implementation Summary}
-
-\textbf{Indexing:} OpenCV samples $N$ frames uniformly
-(\texttt{step}$\,{=}\,\max(1,\lfloor\text{totalFrames}/N\rfloor)$); each
-frame passes through CLIP $\to$ 512-dimensional L2-normalized vector;
-\texttt{ffmpeg} extracts mono 16\,kHz WAV $\to$ Whisper $\to$ segment list
-$(text, start, end)$; results are stored as a structured index.
-
-\textbf{Search:} one query encoding pass; two independent ranking passes over
-keyframes and transcript segments.
-
-\textbf{Q\&A:} concatenate system prompt + (optional) conversation history +
-question $\to$ HTTP POST to Ollama chat API (timeout e.g.\ 120\,s).
+A fixed question is posed to every video: \textit{``Please describe the
+overall content of this video based on the transcript. Answer in Vietnamese,
+approximately 3--5 sentences.''} Generation is capped at 512 tokens for fair
+comparison.
 
 \subsection{Benchmark Metric Definitions}
 
-\begin{itemize}[leftmargin=1.8em]
-  \item $\mathrm{duration\_ratio} = T_{\mathrm{sum}} / T_{\mathrm{orig}}$.
+\begin{itemize}
+  \item $\mathrm{duration\_ratio} = T_{\mathrm{sum}} / T_{\mathrm{orig}}$
   \item File size reduction: $1 - \mathrm{size}_{\mathrm{sum}} /
-        \mathrm{size}_{\mathrm{orig}}$.
-  \item Transcript coverage: $\sum \Delta t$ of Whisper segments as a
-        fraction of video duration (capped at 100\%).
+        \mathrm{size}_{\mathrm{orig}}$
+  \item Transcript coverage: $\sum \Delta t$ of Whisper segments as fraction
+        of video duration
   \item Segment retention ratio:
-        $N_{\mathrm{seg,summ}} / N_{\mathrm{seg,orig}}$.
-  \item CLIP top-1: cosine similarity between query embedding and the
-        best-matching frame embedding.
-  \item Whisper speedup: $t_{\mathrm{orig}} / t_{\mathrm{sum}}$.
+        $N_{\mathrm{seg,summ}} / N_{\mathrm{seg,orig}}$
+  \item CLIP top-1: cosine similarity between query and best-matching frame
+  \item Whisper speedup: $t_{\mathrm{orig}} / t_{\mathrm{sum}}$
 \end{itemize}
 
-\subsection{Quantitative Results (10 Original/Summary Pairs)}
-
-\subsubsection*{Aggregate Averages}
+\subsection{Quantitative Results (10 Video Pairs)}
 
 \begin{table}[H]
 \centering
-\caption{Average VideoIntel benchmark results across 10 video pairs.}
+\caption{Average VideoIntel Benchmark Results (10 Video Pairs)}
 \label{tab:vi_avg}
-\begin{tabular}{@{}lc@{}}
+\begin{tabular}{lc}
 \toprule
 \textbf{Metric} & \textbf{Value} \\
 \midrule
-Duration ratio (summary / original)                   & $\approx$21.5\%  \\
-File size reduction                                    & $\approx$76.8\%  \\
-Whisper speedup                                        & $\approx$4.4$\times$ \\
-Avg.\ transcript coverage (original / summary)         & $\approx$93.8\% / $\approx$94.2\% \\
-Segment retention ratio                               & $\approx$25.6\%  \\
-Avg.\ CLIP top-1 difference (summ $-$ orig, 3 queries) & +0.0015 (negligible) \\
-Acceptable Q\&A (qualitative)                         & Original 8/10, Summary 5/10 \\
+Duration ratio (summary / original)             & $\approx$21.5\%  \\
+File size reduction                              & $\approx$76.8\%  \\
+Whisper speedup                                  & $\approx$4.4$\times$ \\
+Transcript coverage (original / summary)         & $\approx$93.8\% / 94.2\% \\
+Segment retention ratio                          & $\approx$25.6\%  \\
+CLIP top-1 difference (summ $-$ orig)            & +0.0015 (negligible) \\
+Acceptable Q\&A (qualitative)                    & Original 8/10, Summary 5/10 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsubsection*{Per-Video Duration and File Size}
-
 \begin{table}[H]
 \centering
-\caption{Duration and file size for each video pair.}
+\caption{Duration and File Size Per Video Pair}
 \label{tab:vi_size}
-\scriptsize
-\begin{tabular}{@{}lrrrrrrr@{}}
+\begin{tabular}{lrrrrrr}
 \toprule
 \textbf{Video} & \textbf{Orig (s)} & \textbf{Summ (s)} & \textbf{Ratio} &
-\textbf{Orig (MB)} & \textbf{Summ (MB)} & \textbf{Size Reduc.} \\
+\textbf{Orig (MB)} & \textbf{Summ (MB)} & \textbf{Reduc.} \\
 \midrule
 video\_01 & 351  & 76  & 21.7\% & 17.22 & 3.80  & 77.9\% \\
 video\_02 & 1198 & 254 & 21.2\% & 75.29 & 15.90 & 78.9\% \\
@@ -710,23 +581,19 @@ video\_08 & 831  & 177 & 21.3\% & 49.93 & 10.43 & 79.1\% \\
 video\_09 & 1054 & 210 & 19.9\% & 60.34 & 11.83 & 80.4\% \\
 video\_10 & 1006 & 209 & 20.8\% & 54.61 & 11.77 & 78.4\% \\
 \midrule
-\textbf{Avg.} & \textbf{825} & \textbf{179} & \textbf{21.5\%} &
-\textbf{50.6} & \textbf{11.1} & \textbf{76.8\%} \\
+\textbf{Avg.} & 825 & 179 & 21.5\% & 50.6 & 11.1 & 76.8\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsubsection*{Whisper and CLIP Encoding Times}
-
 \begin{table}[H]
 \centering
-\caption{Whisper transcription and CLIP encoding times (60 keyframes).}
+\caption{Whisper Transcription and CLIP Encoding Times (60 Keyframes)}
 \label{tab:vi_time}
-\scriptsize
-\begin{tabular}{@{}lrrrrr@{}}
+\begin{tabular}{lrrrrr}
 \toprule
-\textbf{Video} & \textbf{Whisper Orig (s)} & \textbf{Whisper Summ (s)} &
-\textbf{Speedup} & \textbf{CLIP Orig (s)} & \textbf{CLIP Summ (s)} \\
+\textbf{Video} & \textbf{W-Orig (s)} & \textbf{W-Summ (s)} &
+\textbf{Speedup} & \textbf{C-Orig (s)} & \textbf{C-Summ (s)} \\
 \midrule
 video\_01 & 109.29 & 50.52 & $2.2\times$ & 3.03 & 3.15 \\
 video\_02 & 112.15 & 25.20 & $4.5\times$ & 3.45 & 3.32 \\
@@ -739,207 +606,149 @@ video\_08 & 117.31 & 25.34 & $4.6\times$ & 3.07 & 2.99 \\
 video\_09 & 148.50 & 33.30 & $4.5\times$ & 3.26 & 3.34 \\
 video\_10 & 155.26 & 38.14 & $4.1\times$ & 3.13 & 3.13 \\
 \midrule
-\textbf{Avg.} & \textbf{142.9} & \textbf{34.3} & $\mathbf{4.4\times}$ &
-\textbf{3.22} & \textbf{3.21} \\
+\textbf{Avg.} & 142.9 & 34.3 & $4.4\times$ & 3.22 & 3.21 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsubsection*{Transcript Coverage and Segment Statistics}
-
 \begin{table}[H]
 \centering
-\caption{Transcript coverage and segment retention.}
+\caption{Transcript Coverage and Segment Retention}
 \label{tab:vi_seg}
-\small
-\begin{tabular}{@{}lccrrr@{}}
+\begin{tabular}{lccrrc}
 \toprule
 \textbf{Video} & \textbf{Cov Orig} & \textbf{Cov Summ} &
-\textbf{Seg Orig} & \textbf{Seg Summ} & \textbf{\% Retained} \\
+\textbf{Seg Orig} & \textbf{Seg Summ} & \textbf{\% Ret.} \\
 \midrule
-video\_01 & 98.4\% & 100.0\% & 103 & 31 & 30.1\% \\
-video\_02 & 93.7\% &  99.4\% & 478 & 71 & 14.9\% \\
-video\_03 & 93.1\% &  93.0\% &  89 & 19 & 21.3\% \\
-video\_04 & 91.5\% &  97.7\% &  84 & 42 & 50.0\% \\
-video\_05 & 96.1\% &  93.5\% & 320 &138 & 43.1\% \\
-video\_06 & 94.1\% &  92.3\% & 202 & 51 & 25.2\% \\
-video\_07 & 88.7\% &  94.0\% & 400 & 81 & 20.3\% \\
-video\_08 & 93.4\% &  85.3\% & 164 & 33 & 20.1\% \\
-video\_09 & 92.5\% &  89.7\% & 378 & 36 &  9.5\% \\
-video\_10 & 96.8\% &  97.2\% & 214 & 46 & 21.5\% \\
+video\_01 & 98.4\% & 100.0\% & 103 &  31 & 30.1\% \\
+video\_02 & 93.7\% &  99.4\% & 478 &  71 & 14.9\% \\
+video\_03 & 93.1\% &  93.0\% &  89 &  19 & 21.3\% \\
+video\_04 & 91.5\% &  97.7\% &  84 &  42 & 50.0\% \\
+video\_05 & 96.1\% &  93.5\% & 320 & 138 & 43.1\% \\
+video\_06 & 94.1\% &  92.3\% & 202 &  51 & 25.2\% \\
+video\_07 & 88.7\% &  94.0\% & 400 &  81 & 20.3\% \\
+video\_08 & 93.4\% &  85.3\% & 164 &  33 & 20.1\% \\
+video\_09 & 92.5\% &  89.7\% & 378 &  36 &  9.5\% \\
+video\_10 & 96.8\% &  97.2\% & 214 &  46 & 21.5\% \\
 \midrule
-\textbf{Avg.} & \textbf{93.8\%} & \textbf{94.2\%} &
-\textbf{243} & \textbf{55} & \textbf{25.6\%} \\
+\textbf{Avg.} & 93.8\% & 94.2\% & 243 & 55 & 25.6\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsubsection*{CLIP Top-1 Scores (Three Queries)}
-
-\noindent
-The three benchmark queries are ``Person Speaking'' (PS), ``Important Event''
-(IE), and ``Diagram or Chart'' (DC). Average CLIP top-1 cosine scores across
-all ten videos are shown in Table~\ref{tab:clip_scores}.
-
 \begin{table}[H]
 \centering
-\caption{Average CLIP top-1 scores for original and summary videos (three queries).}
+\caption{Average CLIP Top-1 Scores: Original vs.\ Summary (Three Queries)}
 \label{tab:clip_scores}
-\small
-\begin{tabular}{@{}lrrr@{}}
+\begin{tabular}{lrrr}
 \toprule
-\textbf{Query} & \textbf{Original} & \textbf{Summary} & \textbf{Difference} \\
+\textbf{Query} & \textbf{Original} & \textbf{Summary} & \textbf{Diff.} \\
 \midrule
 Person Speaking (PS)        & 0.2509 & 0.2524 & $+0.0015$ \\
 Important Event (IE)        & 0.2354 & 0.2374 & $+0.0020$ \\
 Diagram or Chart (DC)       & 0.2274 & 0.2271 & $-0.0003$ \\
 \midrule
-\textbf{Mean (all queries)} & \textbf{0.2379} & \textbf{0.2390} & $\mathbf{+0.0015}$ \\
+\textbf{Mean}               & 0.2379 & 0.2390 & $+0.0015$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\noindent
-The overall mean difference (summary $-$ original) across all queries and
-videos is \textbf{+0.0015}, which is \textbf{statistically negligible}.
+The overall mean CLIP top-1 difference (summary $-$ original) is
+\textbf{+0.0015}, which is \textbf{statistically negligible}.
 
-% ─────────────────────────────────────────────────────────────────────────────
 \subsection{Qualitative Q\&A Results}
 
-\textbf{Protocol.} A single fixed question was submitted to Ollama (e.g.\
-\texttt{llama3.2}): \textit{``Please describe the overall content of this
-video based on the transcript. Answer in Vietnamese, approximately 3--5
-sentences.''} The transcript was obtained from Whisper applied separately to
-the \emph{original} video and to the \emph{summary} video. An evaluator
-compared both responses against the actual content of the original video and
-assigned one of three ratings: \textbf{Accurate} (topic matches, no
-factually incorrect details), \textbf{Partial} (correct direction but missing
-details or containing extra/incorrect information relative to the original),
-or \textbf{Incorrect} (off-topic or describing the wrong content).
+Ratings: \textbf{Accurate} (topic matches, no factually incorrect details),
+\textbf{Partial} (correct direction but missing details or hallucinated extras),
+\textbf{Incorrect} (off-topic or wrong content).
 
-\medskip\noindent
-\textbf{Overall result (10 videos).} On the \emph{original} transcript,
-\textbf{8/10} responses were rated acceptable. On the \emph{summary}
-transcript, only \textbf{5/10} achieved an equivalent level (\textbf{Accurate});
-the remaining 5 fell into \textbf{Partial} or \textbf{Incorrect}, primarily
-because the transcript was too short, contained missing segments, or the
-summarization step selected off-topic scenes---leaving the LLM without
-sufficient evidence or causing hallucination.
-
-\medskip\noindent
-\textbf{Per-video breakdown} (original transcript vs.\ summary transcript) is
-given in Table~\ref{tab:qa_detail}.
+\textbf{Overall:} On the original transcript, \textbf{8/10} responses were
+acceptable. On the summary transcript, only \textbf{5/10} were Accurate; the
+remaining 5 fell into Partial or Incorrect.
 
 \begin{table}[H]
 \centering
-\caption{Per-video qualitative Q\&A rating and observations (summary vs.\ original).}
+\caption{Per-Video Qualitative Q\&A Rating (Summary Transcript)}
 \label{tab:qa_detail}
-\scriptsize
-\renewcommand{\arraystretch}{1.35}
-\begin{tabular}{@{}p{1.5cm} p{1.8cm} p{10.5cm}@{}}
+\begin{tabular}{p{1.1cm}p{1.3cm}p{5.0cm}}
 \toprule
-\textbf{Video} & \textbf{Rating (summ)} & \textbf{Qualitative observation} \\
+\textbf{Video} & \textbf{Rating} & \textbf{Observation} \\
 \midrule
-video\_01 & \textbf{Incorrect}
-  & Original: US--Israel--Iran news, political leaders.
-    Summary: describes a \textbf{completely different topic}
-    (e.g.\ antibiotics / comedy sketch) --- severe content-selection error. \\
-video\_02 & \textbf{Accurate}
-  & Both responses cover Israel/Iran, energy, US social issues;
-    the summary version additionally captures an extremist-movement story
-    in the US --- \textbf{topic matches}. \\
-video\_03 & \textbf{Partial}
-  & Original: football commentary with specific teams and players.
-    Summary: correct sports direction (FA Cup, England--Brazil) but
-    \textbf{missing} the specific team/player details present in the original. \\
-video\_04 & \textbf{Accurate}
-  & Both cover AI scenario planning and control risks ---
-    \textbf{well aligned}. \\
-video\_05 & \textbf{Accurate}
-  & Original: neural electronics, pathology.
-    Summary: BCIs, biomaterials --- \textbf{matches}, even more precise
-    technically. \\
-video\_06 & \textbf{Partial}
-  & Original: Middle East, Iran/US/Russia, oil.
-    Summary: correct geopolitical direction, but \textbf{adds} a
-    ``Vietnamese traffic accident'' detail \textbf{absent} from the original
-    (hallucination / context noise). \\
-video\_07 & \textbf{Partial}
-  & Original: Iran/Russia, Ukraine, energy, EU, Slovakia.
-    Summary: correct on economy/China, but \textbf{adds}
-    ``Vietnam economic competition'' which is \textbf{unrelated}. \\
-video\_08 & \textbf{Partial}
-  & Original: US--Iran, border, Khamenei.
-    Summary: correct on Iran/Trump/China, but \textbf{adds} Chinese real
-    estate and New York protests --- \textbf{off-topic} peripheral content. \\
-video\_09 & \textbf{Partial}
-  & Original: multiple domestic and international events.
-    Summary: international part \textbf{approximately correct} but
-    \textbf{misinterprets} some points; domestic content is \textbf{missing} ---
-    consistent with only $\approx$9.5\% of transcript segments retained
-    (Table~\ref{tab:vi_seg}). \\
-video\_10 & \textbf{Accurate}
-  & Both cover Middle East maritime issues, security, rescue operations ---
-    \textbf{key topics preserved}. \\
+video\_01 & Incorrect
+  & Original: US--Israel--Iran news. Summary: completely different topic
+    (antibiotics / comedy) --- severe content-selection error. \\
+video\_02 & Accurate
+  & Both cover Israel/Iran, energy, US social issues --- topic matches. \\
+video\_03 & Partial
+  & Correct sports direction (FA Cup) but missing specific team/player
+    details. \\
+video\_04 & Accurate
+  & Both cover AI scenario planning and control risks --- well aligned. \\
+video\_05 & Accurate
+  & BCIs, biomaterials in summary matches original neural electronics
+    content. \\
+video\_06 & Partial
+  & Correct geopolitical direction but adds ``Vietnamese traffic accident''
+    absent from original (hallucination). \\
+video\_07 & Partial
+  & Correct on economy/China but adds ``Vietnam economic competition''
+    which is unrelated. \\
+video\_08 & Partial
+  & Correct on Iran/Trump/China but adds off-topic Chinese real estate
+    and New York protests. \\
+video\_09 & Partial
+  & International part approximately correct; domestic content missing
+    (only $\approx$9.5\% of segments retained). \\
+video\_10 & Accurate
+  & Both cover Middle East maritime issues --- key topics preserved. \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\noindent
 \textbf{Interpretation.} Q\&A quality on the summary does \emph{not} track
-CLIP search quality: when the transcript loses segment density or topic
-fidelity, the LLM still produces fluent output that is \textbf{unfaithful}
-to the original video. The two extremes are \textbf{video\_01}
-(complete topic drift) and \textbf{video\_09} (severe information loss
-due to only 9.5\% of segments retained).
+CLIP search quality: transcript density and topic fidelity are the critical
+factors. The two extremes are \textbf{video\_01} (complete topic drift) and
+\textbf{video\_09} (9.5\% segment retention causing severe information loss).
 
 \subsection{Limitations and Recommendations}
 
-\begin{itemize}[leftmargin=1.8em]
-  \item Sample size: 10 videos; one LLM; one question template---results do
-        not generalize across all language and content domains.
-  \item CLIP top-1 score does not substitute for human-labeled relevance
-        judgment.
-  \item \textbf{Recommendations:} (i) enforce a minimum segment count
-        threshold before trusting Q\&A; (ii) check topic consistency between
-        original and summary transcripts; (iii) verify audio coverage when an
-        anomalous drop occurs.
+\begin{itemize}
+  \item Sample size: 10 videos; one LLM; one question template.
+  \item CLIP top-1 score does not substitute for human-labeled relevance.
+  \item \textbf{Recommendations:} (i) enforce a minimum segment count before
+        trusting Q\&A; (ii) check topic consistency between transcripts;
+        (iii) verify audio coverage on anomalous drops.
 \end{itemize}
 
 % =============================================================================
 \section{Conclusion}
 % =============================================================================
 
-This report has presented a \textbf{multimodal BiLSTM with Temporal Attention}
+This report presented a \textbf{multimodal BiLSTM with Temporal Attention}
 using \textbf{2432-dimensional} feature vectors, trained with supervised
-learning and evaluated at summary ratio $r{=}0.35$. Ablation experiments
-(Section~8.1) confirm the individual contribution of the audio-language branch,
-bidirectional encoding, and attention mechanism, while the literature comparison
-(Section~8.2) contextualizes the results within known benchmarks.
+learning at summary ratio $r{=}0.35$. Ablation experiments confirm the
+individual contributions of the audio-language branch (+2.0\,pp F-score),
+bidirectional encoding (+5.7\,pp), and Temporal Attention (+3.7\,pp).
 
-On the application side, \textbf{VideoIntel} demonstrates that \textbf{CLIP
-semantic search} on video summaries suffers \textbf{negligible degradation} at
-the defined metric level, while \textbf{question-answering quality} depends
-critically on the \textbf{density and topical accuracy of the transcript}. This
-reflects the nature of video summarization as \textbf{lossy compression} and
-highlights the need for \textbf{downstream task validation} before real-world
-deployment.
+The \textbf{VideoIntel} evaluation demonstrates that \textbf{CLIP semantic
+search} on summaries suffers \textbf{negligible degradation}, while
+\textbf{Q\&A quality} depends critically on transcript density and topical
+accuracy---reflecting video summarization as \textbf{lossy compression} and
+underlining the need for \textbf{downstream task validation} before deployment.
 
 % =============================================================================
 \section*{Appendix: Ablation Experiments}
 % =============================================================================
 
 All ablation variants (visual-only BiLSTM, full multimodal BiLSTM, no
-attention, UniLSTM) have been reported with numerical results in
-Section~\ref{tab:ablation_results}. Extensions to new domains or downstream
-tasks (classification, captioning on summarized video) are left as future work
-beyond the scope of this report.
+attention, UniLSTM) are reported with numerical results in
+Table~\ref{tab:ablation_results}. Extensions to new domains or downstream
+tasks are left as future work.
 
 % =============================================================================
 %  References
 % =============================================================================
-\newpage
-\bibliographystyle{ieeetr}
+\bibliographystyle{IEEEtran}
 
 \begin{thebibliography}{99}
 
@@ -1005,8 +814,7 @@ S.~Hochreiter and J.~Schmidhuber,
 
 \bibitem{radford2021clip}
 A.~Radford \textit{et al.},
-``Learning Transferable Visual Models From Natural Language Supervision
-(CLIP),''
+``Learning Transferable Visual Models From Natural Language Supervision (CLIP),''
 in \textit{ICML}, 2021.
 
 \bibitem{reimers2019}
