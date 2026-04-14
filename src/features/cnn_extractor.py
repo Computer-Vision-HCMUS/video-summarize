@@ -57,6 +57,7 @@ class CNNFeatureExtractor(nn.Module):
             m = models.resnet50(weights="DEFAULT" if pretrained else None)
             self._features = nn.Sequential(*list(m.children())[:-1])
             self._out_dim = 2048
+        self._features = self._features.to(self.device)
         self._features.eval()
 
     def _infer_feature_dim(self) -> int:
@@ -67,6 +68,12 @@ class CNNFeatureExtractor(nn.Module):
         x: (B, T, C, H, W) or (B, C, H, W).
         Returns (B, T, D) or (B, D).
         """
+        feature_params = list(self._features.parameters())
+        feature_device = feature_params[0].device if feature_params else self.device
+        if feature_device != self.device:
+            self._features = self._features.to(self.device)
+            feature_device = self.device
+        x = x.to(feature_device)
         if x.dim() == 5:
             B, T, C, H, W = x.shape
             x = x.view(B * T, C, H, W)
@@ -99,6 +106,7 @@ class CNNFeatureExtractor(nn.Module):
                 std=[0.229, 0.224, 0.225],
             ),
         ])
+        self._features = self._features.to(self.device)
         self.eval()
         features_list = []
         with torch.no_grad():

@@ -97,7 +97,7 @@ def _detect_has_audio(input_dim: int) -> bool:
 
 # ── Load model ────────────────────────────────────────────────────────────────
 @st.cache_resource
-def load_model_and_extractor(_config_path: str, _checkpoint_path: str):
+def load_model_and_extractor(_config_path: str, _checkpoint_path: str, _cache_version: int = 2):
     import torch
     from src.config import load_config
     from src.features import CNNFeatureExtractor
@@ -133,6 +133,10 @@ def load_model_and_extractor(_config_path: str, _checkpoint_path: str):
     extractor = CNNFeatureExtractor(
         backbone=backbone, pretrained=True, device=str(device)
     )
+    # Force-sync device for cached objects across reruns.
+    extractor.device = device
+    extractor._features = extractor._features.to(device)
+    extractor._features.eval()
 
     return model, extractor, device, config, input_dim, backbone, has_audio
 
@@ -285,7 +289,7 @@ if st.button("Generate summary", type="primary"):
 
         with st.spinner("Loading model..."):
             model, extractor, device, config, input_dim, backbone, has_audio = load_model_and_extractor(
-                config_path, checkpoint_path
+                config_path, checkpoint_path, 2
             )
             st.sidebar.divider()
             st.sidebar.subheader("🔍 Auto-detected")
