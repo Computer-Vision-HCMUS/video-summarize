@@ -14,7 +14,10 @@ from .attention import TemporalAttention
 class BiLSTMSummarizer(nn.Module):
     """
     BiLSTM that consumes frame features and outputs frame importance scores.
-    Optional temporal attention for context; scores are per-frame.
+
+    Fix 1: Attention context được fuse vào scorer thay vì bỏ phí.
+    Mỗi frame score = f(lstm_out[t], attn_context) thay vì chỉ f(lstm_out[t]).
+    → Model biết frame nào quan trọng hơn trong ngữ cảnh toàn video.
     """
 
     def __init__(
@@ -41,12 +44,18 @@ class BiLSTMSummarizer(nn.Module):
             bidirectional=bidirectional,
         )
         out_h = hidden_size * self.num_directions
+
         if use_attention:
             self.attention = TemporalAttention(out_h)
+            # Scorer nhận [lstm_out || attn_context] cho mỗi frame
+            # attn_context được expand để concat theo chiều time
+            scorer_in = out_h * 2
         else:
             self.attention = None
+            scorer_in = out_h
+
         self.scorer = nn.Sequential(
-            nn.Linear(out_h, hidden_size),
+            nn.Linear(scorer_in, hidden_size),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_size, 1),
@@ -72,7 +81,18 @@ class BiLSTMSummarizer(nn.Module):
 
         attn_weights = None
         if self.attention is not None:
-            _, attn_weights = self.attention(out, lengths=lengths)
+            # context: (B, H) — global video context
+            # weights: (B, T) — attention distribution
+            context, attn_weights = self.attention(out, lengths=lengths)
 
-        scores = self.scorer(out).squeeze(-1)
+            # Expand context → (B, T, H) để concat với mỗi frame
+            T = out.size(1)
+            context_expanded = context.unsqueeze(1).expand(-1, T, -1)
+
+            # Fuse: mỗi frame thấy cả local (lstm_out) lẫn global (context)
+            scorer_input = torch.cat([out, context_expanded], dim=-1)
+        else:
+            scorer_input = out
+
+        scores = self.scorer(scorer_input).squeeze(-1)  # (B, T)
         return scores, attn_weights

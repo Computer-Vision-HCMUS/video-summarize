@@ -39,17 +39,21 @@ model:
   bidirectional: true
   use_attention: true
 
-# Training (batch_size 4 when max_seq_len 960 to avoid OOM)
+# Training
+# Fix 4: Dùng ReduceLROnPlateau trong Trainer (factor=0.5, patience=5, min_lr=1e-5)
+# Fix 3: diversity_weight và n_segments control coverage loss
 training:
   batch_size: 4
   epochs: 50
   learning_rate: 1.0e-3
-  weight_decay: 1.0e-5
+  weight_decay: 1.0e-4       # tăng từ 1e-5 lên 1e-4 để regularize hơn
   early_stopping_patience: 10
   gradient_clip: 1.0
   checkpoint_every: 5
+  diversity_weight: 0.3      # Fix 3: weight của coverage/diversity loss
+  n_segments: 5              # Fix 3: số segments chia video để tính coverage
 
-# Inference / Summary (ratio 0.35 ≈ ~1–2 min output from 10 min at 4 fps)
+# Inference / Summary
 inference:
   summary_ratio: 0.35
   min_keyframes: 5
