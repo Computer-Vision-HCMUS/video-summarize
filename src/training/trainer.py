@@ -1,4 +1,7 @@
-"""Trainer: wires config, data, model, and training loop."""
+"""Trainer: wires config, data, model, and training loop.
+
+Fix 4: Thay StepLR bằng ReduceLROnPlateau → tự điều chỉnh LR khi val_loss plateau.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +12,7 @@ from typing import Any, Dict, Optional
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
 from ..config import Config
@@ -31,8 +34,8 @@ class Trainer:
         )
 
     def build_model(self, input_dim: Optional[int] = None) -> BiLSTMSummarizer:
-        """Build model from config. input_dim overrides config when set (e.g. from data/features/_meta.json)."""
-        m = self.config.model
+        """Build model from config. input_dim overrides config khi set từ _meta.json."""
+        m   = self.config.model
         dim = input_dim if input_dim is not None else m.input_dim
         return BiLSTMSummarizer(
             input_dim=dim,
@@ -52,18 +55,40 @@ class Trainer:
         model_input_dim: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
-        Run training. Uses BCEWithLogitsLoss by default for frame scores.
-        model_input_dim: override from data/features/_meta.json when using eccv16 .h5 features.
+        Run training với:
+        - ReduceLROnPlateau scheduler (Fix 4)
+        - Diversity loss (Fix 3, configured via config)
         """
-        model = self.build_model(input_dim=model_input_dim)
-        t = self.config.training
+        model     = self.build_model(input_dim=model_input_dim)
+        t         = self.config.training
         criterion = nn.BCEWithLogitsLoss(reduction="mean")
+
         optimizer = AdamW(
             model.parameters(),
             lr=t.learning_rate,
-            weight_decay=t.get("weight_decay", 0),
+            weight_decay=t.get("weight_decay", 1e-4),
         )
-        scheduler = StepLR(optimizer, step_size=15, gamma=0.5)
+
+        # Fix 4: ReduceLROnPlateau thay vì StepLR cứng
+        # - patience=5: giảm LR sau 5 epoch không cải thiện val_loss
+        # - factor=0.5: giảm LR xuống 50%
+        # - min_lr=1e-5: không giảm quá thấp
+        scheduler = ReduceLROnPlateau(
+            optimizer,
+            mode="min",
+            factor=0.5,
+            patience=5,
+            min_lr=1e-5,
+        )
+
+        # Fix 3: diversity loss params từ config (hoặc default)
+        diversity_weight = getattr(t, "diversity_weight", 0.3)
+        n_segments       = getattr(t, "n_segments", 5)
+
+        logger.info(
+            "Training: lr=%.2e | diversity_weight=%.2f | n_segments=%d",
+            t.learning_rate, diversity_weight, n_segments,
+        )
 
         return run_training_loop(
             model=model,
@@ -79,4 +104,6 @@ class Trainer:
             checkpoint_dir=Path(checkpoint_dir) if checkpoint_dir else None,
             checkpoint_every=t.get("checkpoint_every", 5),
             resume_path=Path(resume_path) if resume_path else None,
+            diversity_weight=diversity_weight,
+            n_segments=n_segments,
         )

@@ -119,13 +119,20 @@ def load_model_and_extractor(_config_path: str, _checkpoint_path: str, _cache_ve
     backbone  = _detect_backbone(input_dim)
     has_audio = _detect_has_audio(input_dim)
 
+    bidirectional = getattr(config.model, "bidirectional", True)
+    use_attention, fuse_attention = BiLSTMSummarizer.infer_attention_flags_from_state_dict(
+        state,
+        hidden_size=config.model.hidden_size,
+        bidirectional=bidirectional,
+    )
     model = BiLSTMSummarizer(
         input_dim=input_dim,
         hidden_size=config.model.hidden_size,
         num_layers=config.model.num_layers,
         dropout=config.model.dropout,
-        bidirectional=getattr(config.model, "bidirectional", True),
-        use_attention=getattr(config.model, "use_attention", True),
+        bidirectional=bidirectional,
+        use_attention=use_attention,
+        fuse_attention_context=fuse_attention,
     )
     model.load_state_dict(state)
     model = model.to(device).eval()

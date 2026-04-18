@@ -1,6 +1,6 @@
 # Tóm tắt video đa phương thức bằng học có giám sát: Multimodal BiLSTM và Temporal Attention, kèm đánh giá ứng dụng phân tích VideoIntel
 
-**Tóm tắt.** Báo cáo trình bày phương pháp tóm tắt video có giám sát trên tập SumMe và TVSum, với đặc trưng thị giác ResNet-50, đặc trưng ngữ nghĩa lời nói từ Whisper và SentenceBERT, mạng BiLSTM hai tầng kết hợp Temporal Attention, và suy luận theo tỷ lệ tóm tắt \(r=0{,}35\) với làm mượt Gaussian, phân đoạn shot, và mở rộng biên đoạn. Phần sau trình bày ứng dụng VideoIntel (CLIP, Whisper, LLM cục bộ) để đo mức độ giữ lại khả năng tìm kiếm và hỏi–đáp khi thay video gốc bằng video tóm tắt. Toàn bộ nội dung được tự chứa trong một tài liệu; không cần đọc kèm file nguồn khác.
+**Tóm tắt.** Báo cáo trình bày phương pháp tóm tắt video có giám sát trên tập SumMe và TVSum, với đặc trưng thị giác ResNet-50, đặc trưng ngữ nghĩa lời nói từ Whisper và SentenceBERT, mạng BiLSTM hai tầng kết hợp Temporal Attention, và suy luận theo tỷ lệ tóm tắt \(r=0{,}35\) với làm mượt Gaussian, phân đoạn shot, và mở rộng biên đoạn. Một nhánh **tối ưu hóa** (nối ngữ cảnh attention vào đầu gán điểm, chọn keyshot lai, loss phụ phân đoạn, điều chỉnh tối ưu hóa) được tóm tắt kèm số liệu so với baseline trên tập kiểm tra. Phần ứng dụng trình bày VideoIntel (CLIP, Whisper, LLM cục bộ) để đo mức độ giữ lại khả năng tìm kiếm và hỏi–đáp khi thay video gốc bằng video tóm tắt. **Phụ lục** bổ sung thí nghiệm downstream **phát hiện sự kiện** (rừng ngẫu nhiên trên đặc trưng thống kê) so sánh học trên video gốc và video tóm tắt. Chi tiết triển khai và tái lập thí nghiệm có thể tham chiếu mã nguồn và tài liệu kèm theo.
 
 **Từ khóa.** tóm tắt video, học có giám sát, BiLSTM, temporal attention, đa phương thức, SumMe, TVSum, CLIP, Whisper, hỏi–đáp video.
 
@@ -17,8 +17,10 @@
 7. [Siêu tham số và cấu hình thực nghiệm](#7-siêu-tham-số-và-cấu-hình-thực-nghiệm)
 8. [Kết quả thực nghiệm và so sánh với tài liệu tham khảo](#8-kết-quả-thực-nghiệm-và-so-sánh-với-tài-liệu-tham-khảo)
 9. [Ứng dụng phân tích nội dung: VideoIntel (VSE-app)](#9-ứng-dụng-phân-tích-nội-dung-videointel-vse-app)
-10. [Kết luận](#10-kết-luận)
-11. [Tài liệu tham khảo](#11-tài-liệu-tham-khảo)
+10. [Tối ưu hóa kiến trúc và huấn luyện (optimize)](#10-tối-ưu-hóa-kiến-trúc-và-huấn-luyện-optimize)
+11. [Kết luận](#11-kết-luận)
+12. [Tài liệu tham khảo](#12-tài-liệu-tham-khảo)
+13. [Phụ lục](#13-phụ-lục)
 
 ---
 
@@ -46,9 +48,9 @@ Các hướng tiếp cận gồm: heuristic và phân cụm; mạng tuần tự 
 
 ### 1.4. Công trình liên quan
 
-Phần này tóm tắt **hướng nghiên cứu** và **ứng dụng** gần với nội dung báo cáo; chi tiết trích dẫn nằm ở mục 11.
+Phần này tóm tắt **hướng nghiên cứu** và **ứng dụng** gần với nội dung báo cáo; chi tiết trích dẫn nằm ở mục 12.
 
-**Thuật toán và phương pháp tóm tắt video.** Các khảo sát tổng quan (ví dụ [19]–[24], mục 11.6) cho thấy pipeline cổ điển gồm **trích đặc trưng khung**, **ước lượng điểm quan trọng** rồi **chọn đoạn** theo ngưỡng hoặc ngân sách thời lượng. Với học sâu có giám sát, **LSTM / BiLSTM** và biến thể **vsLSTM / dppLSTM** ([7]) mô hình hóa phụ thuộc thời gian; **attention** (VASNet [4], Temporal Attention trong báo cáo này) giúp nhấn vùng nhiều thông tin. Các hướng **không giám sát / sinh đối kháng** (SUM-GAN [6], Cycle-SUM [8]) và **Transformer** (MSVA [5], PGL-SUM [1], MHSCNet [11]) bổ sung lựa chọn kiến trúc. **Đa phương thức** kết hợp hình và tín hiệu ngôn ngữ lời nói là chủ đề tích cực ([21] và các survey). Ở tầng đặc trưng, **CNN ResNet** ([12]) cho vector thị giác; nhánh văn bản trong báo cáo dùng **Whisper** ([16]) và **Sentence-BERT** ([15]) để cố định chiều fusion với hình. Các **mạng nhận diện video** (TimeSformer, Video Swin, I3D; [25]–[27]) thường được dùng làm tham chiếu khi đánh giá tác vụ downstream trên video đã rút gọn.
+**Thuật toán và phương pháp tóm tắt video.** Các khảo sát tổng quan (ví dụ [19]–[24], mục 12.6) cho thấy pipeline cổ điển gồm **trích đặc trưng khung**, **ước lượng điểm quan trọng** rồi **chọn đoạn** theo ngưỡng hoặc ngân sách thời lượng. Với học sâu có giám sát, **LSTM / BiLSTM** và biến thể **vsLSTM / dppLSTM** ([7]) mô hình hóa phụ thuộc thời gian; **attention** (VASNet [4], Temporal Attention trong báo cáo này) giúp nhấn vùng nhiều thông tin. Các hướng **không giám sát / sinh đối kháng** (SUM-GAN [6], Cycle-SUM [8]) và **Transformer** (MSVA [5], PGL-SUM [1], MHSCNet [11]) bổ sung lựa chọn kiến trúc. **Đa phương thức** kết hợp hình và tín hiệu ngôn ngữ lời nói là chủ đề tích cực ([21] và các survey). Ở tầng đặc trưng, **CNN ResNet** ([12]) cho vector thị giác; nhánh văn bản trong báo cáo dùng **Whisper** ([16]) và **Sentence-BERT** ([15]) để cố định chiều fusion với hình. Các **mạng nhận diện video** (TimeSformer, Video Swin, I3D; [25]–[27]) thường được dùng làm tham chiếu khi đánh giá tác vụ downstream trên video đã rút gọn.
 
 **Ứng dụng và hệ thống liên quan.** Tóm tắt video phục vụ **xem lướt bản tin, bài giảng, MOOC**, tạo **preview / thumbnail** và giảm chi phí lưu trữ. Ở mức **phân tích nội dung sau tóm tắt**, các hệ thống hiện đại kết hợp **truy vấn ngữ nghĩa trên khung hình** (CLIP, mục 9), **phiên âm** (Whisper) và **hỏi–đáp / tóm tắt văn bản** (LLM cục bộ), nhằm kiểm tra mức **mất mát thông tin** khi chỉ còn bản rút gọn — đúng với động lực của VideoIntel (mục 9). Hướng mở rộng khác gồm **phân loại**, **captioning** và **truy hồi** trên video đã nén, với giả thuyết chung là giữ **hiệu năng downstream** ở mức chấp nhận được nếu tóm tắt **đại diện đủ** nội dung quan trọng.
 
@@ -466,23 +468,108 @@ Trung bình toàn bộ video: điểm trung bình trên PS là **0,2509 (gốc)*
 
 ---
 
-## 10. Kết luận
+## 10. Tối ưu hóa kiến trúc và huấn luyện (optimize)
 
-Báo cáo đã trình bày **mô hình đa phương thức BiLSTM có Temporal Attention** với **đặc trưng 2432 chiều**, huấn luyện có giám sát và suy luận theo **\(r=0{,}35\)**, kèm **kết quả thực nghiệm** và **ablation** (mục 8.1) cùng **bảng so sánh văn bản nghiên cứu** (mục 8.2). Trên nhánh ứng dụng, **VideoIntel** cho thấy **tìm kiếm CLIP** trên video tóm tắt **gần như không suy giảm** ở mức metric đã định nghĩa, trong khi **hỏi–đáp** phụ thuộc mạnh vào **mật độ và độ đúng chủ đề của transcript** — phản ánh đúng vai trò của tóm tắt như **nén có mất mát** và nhu cầu **kiểm chứng downstream** trước khi triển khai thực tế.
+Mục này tóm tắt một nhánh cải tiến pipeline so với cấu hình **baseline** (cùng tập SumMe/TVSum và cùng giao thức đánh giá như mục 8), nhằm tăng độ khớp nhãn khung và độ chồng lấn thời gian với ground truth. Cơ sở lý luận bám các hướng đã được literature ghi nhận: LSTM/attention cho tóm tắt video ([4], [7], [30]), chọn tập con cân bằng **độ liên quan–đa dạng–phủ** ([31], [32]), học đa mục tiêu với tín hiệu phụ ([33]), và regularization / lịch learning rate thích nghi ([29], [34], [35]).
+
+### 10.1. Đối tượng so sánh và giao thức đo
+
+Hai checkpoint được so trên **cùng tập kiểm tra**, cùng tách dữ liệu và hạt giống ngẫu nhiên theo cấu hình huấn luyện, cùng tỷ lệ tóm tắt khi suy luận và cùng pipeline đánh giá: độ đo Precision, Recall, F-score trên nhãn khung nhị phân hóa theo tỷ lệ \(r\), và **độ chồng lấn thời gian** (temporal overlap) giữa tập khung được chọn và nhãn tham chiếu (tương đương IoU ở mức khung). Việc nạp mô hình khi đánh giá phải khớp **kiến trúc đã huấn luyện** (đặc biệt chiều đầu vào của lớp gán điểm cuối): bản tối ưu có thể nối vector **ngữ cảnh attention toàn chuỗi** với vector ẩn từng khung trước khi đưa vào bộ gán điểm, khác với baseline chỉ dùng vector ẩn cục bộ — nếu không suy đúng cờ kiến trúc, so sánh số liệu sẽ không có giá trị.
+
+### 10.2. Kết quả định lượng (tập kiểm tra)
+
+Bảng sau ghi nhận một lần đo điển hình; số có thể dao động nhẹ theo seed hoặc phiên bản trọng số.
+
+| Chỉ số | Baseline | Optimize | Chênh (Optimize − Baseline) |
+|--------|----------:|----------:|-----------------------------:|
+| Precision | 0,4767 | 0,5293 | +0,0526 |
+| Recall | 0,4767 | 0,5293 | +0,0526 |
+| F-score | 0,4767 | 0,5293 | +0,0526 |
+| Temporal overlap | 0,2347 | 0,3709 | +0,1363 |
+
+### 10.3. Các thay đổi chính so với baseline
+
+Dưới đây mô tả **bốn khối cải tiến** theo thứ tự: (1) kiến trúc đầu ra — cách vector đi vào lớp gán điểm từng khung; (2) suy luận — cách chọn tập keyframe sau khi đã có chuỗi điểm (hoặc điểm đã làm mượt theo shot); (3) hàm mất mát huấn luyện — ngoài BCE theo nhãn khung còn thêm hạng phạt theo **phủ trục thời gian**; (4) lịch tối ưu và regularization. Các công thức dùng ký hiệu thống nhất với mục 3: chuỗi có độ dài \(T\) bước sau lấy mẫu, logit \(z_t\), xác suất \(\hat{y}_t = \sigma(z_t)\).
+
+#### 10.3.1. Kiến trúc: nối vector ngữ cảnh attention vào đầu gán điểm (fuse attention context)
+
+**Baseline.** Sau hai tầng BiLSTM, tại mỗi bước \(t\) ta có vector ẩn hai chiều \(\mathbf{h}_t \in \mathbb{R}^{512}\) (nối LSTM thuận và nghịch, mỗi chiều ẩn 256). Cơ chế Temporal Attention tính trọng số \(\alpha_t\) trên \(\{\mathbf{h}_1,\ldots,\mathbf{h}_T\}\) và vector tổng hợp toàn chuỗi \(\mathbf{c} = \sum_{\tau=1}^{T} \alpha_\tau \mathbf{h}_\tau \in \mathbb{R}^{512}\). Ở phiên bản baseline, attention phục vụ việc tính trọng số \(\alpha\) (và có thể dùng trong các nhánh khác), nhưng **lớp gán điểm (scorer)** cho logit \(z_t\) chỉ nhận \(\mathbf{h}_t\) làm đầu vào: tức là ánh xạ có dạng \(z_t = f_{\mathrm{base}}(\mathbf{h}_t)\), với tầng tuyến tính đầu có **512** đầu vào (khớp \(\dim \mathbf{h}_t\)).
+
+**Optimize.** Cải tiến là đưa cả **ngữ cảnh toàn clip** \(\mathbf{c}\) vào cùng mức quyết định với trạng thái cục bộ \(\mathbf{h}_t\), bằng phép **nối vector**:
+
+\[
+\mathbf{u}_t = \bigl[\mathbf{h}_t \,;\, \mathbf{c}\bigr] \in \mathbb{R}^{1024},
+\qquad z_t = f_{\mathrm{opt}}(\mathbf{u}_t).
+\]
+
+Lớp tuyến tính đầu của \(f_{\mathrm{opt}}\) do đó có **1024** đầu vào. Về mặt biểu diễn, đây là dạng **late fusion** cố định: \(\mathbf{c}\) giống nhau cho mọi \(t\), nhưng cho phép \(f_{\mathrm{opt}}\) học các tương tác kiểu “độ nổi bật của khung \(t\) **so với** phân bố nội dung toàn video” — phù hợp tinh thần các mô hình attention / encoder–decoder trong tóm tắt video ([4], [7], [30]). **Lưu ý triển khai:** checkpoint baseline và optimize **không tương thích trọng số từng phần** ở lớp scorer; huấn luyện lại toàn bộ với cờ kiến trúc tương ứng là bắt buộc. Khi đánh giá, bắt buộc suy đúng chiều đầu vào (512 so với 1024) nếu không kết quả số không có nghĩa.
+
+#### 10.3.2. Suy luận: chọn keyshot lai (quality–diversity)
+
+Sau bước làm mượt theo shot và thu được điểm (hoặc xếp hạng) trên từng shot, cần chọn **\(k_{\mathrm{tot}}\)** keyframe (hoặc tương đương \(k\) khung đại diện) với \(k_{\mathrm{tot}} \approx \lceil r \cdot L \rceil\) theo độ dài \(L\) và tỷ lệ tóm tắt \(r\). Chiến lược **lai** tách ngân sách:
+
+\[
+k_q = \mathrm{round}\bigl(\rho \, k_{\mathrm{tot}}\bigr),
+\qquad k_d = k_{\mathrm{tot}} - k_q,
+\qquad \rho \approx 0{,}7 \ \text{(tỷ lệ quality trong triển khai).}
+\]
+
+- **\(k_q\) khung đầu:** lấy từ các shot có điểm cao nhất (greedy theo **chất lượng**), đảm bảo phần lớn ngân sách dành cho vùng thực sự salient theo mô hình.
+- **\(k_d\) khung sau:** bổ sung từ các shot **chưa được đại diện** hoặc vùng còn thiếu **phủ** trên trục thời gian (coverage / diversity theo vùng), tránh hiện tượng toàn bộ \(k\) khung tập trung vào một đoạn ngắn.
+
+So với **chỉ greedy top-\(k\) theo điểm:** bản lai giảm nguy cơ bỏ sót đoạn quan trọng ở phần khác của video → thường cải thiện **recall** và **temporal overlap**. So với **chia đều cứng** (bắt buộc mỗi đoạn đều có đại diện dù điểm thấp), chiến lược lai tránh phải chọn khung điểm thấp ở đoạn ít thông tin → giữ **precision** tốt hơn. Điều này phù hợp các khung lý thuyết chọn subset cân bằng mục tiêu **relevance, coverage, diversity** ([31], [32]).
+
+#### 10.3.3. Huấn luyện: tổng mất mát BCE và phạt phủ theo đoạn (diversity / coverage loss)
+
+**Thành phần chính** vẫn là **Binary Cross-Entropy (BCE) có mask** trên các vị trí có nhãn: \(\mathcal{L}_{\mathrm{BCE}}\) là trung bình của \(-\bigl[\tilde{y}_t \log \sigma(z_t) + (1-\tilde{y}_t)\log(1-\sigma(z_t))\bigr]\) theo các \(t\) hợp lệ, với \(\tilde{y}_t\) là nhãn nhị phân hóa từ nhãn mềm (như mục 3.2).
+
+**Thành phần phụ** nhằm tránh mô hình chỉ gán xác suất cao cho một vài đoạn thời gian mà bỏ qua phần còn lại của video. Cụ thể: chia \(T\) bước thành \(K\) **đoạn liên tiếp** (số đoạn là siêu tham số `n_segments` trong cấu hình). Gọi \(S_j\) là tập chỉ số thời gian thuộc đoạn \(j \in \{1,\ldots,K\}\). Với mỗi đoạn, định nghĩa điểm “đại diện” là **cực đại** xác suất trong đoạn:
+
+\[
+m_j = \max_{t \in S_j} \sigma(z_{i,t}) \quad \text{(trên mẫu } i \text{ trong batch; bỏ qua video quá ngắn nếu quy ước triển khai).}
+\]
+
+Hạng phạt dùng **phương sai mẫu** của \(\{m_1,\ldots,m_K\}\):
+
+\[
+\mathcal{L}_{\mathrm{div}} = \mathrm{Var}(m_1,\ldots,m_K),
+\qquad
+\mathcal{L} = \mathcal{L}_{\mathrm{BCE}} + \lambda \, \mathcal{L}_{\mathrm{div}},
+\]
+
+với \(\lambda = \texttt{diversity\_weight} \ge 0\). **Ý nghĩa gradient:** nếu chỉ một vài \(m_j\) rất lớn và các đoạn khác rất nhỏ, phương sai lớn → \(\mathcal{L}_{\mathrm{div}}\) lớn; tối ưu sẽ kéo phân bố các \(\max\) trong từng đoạn **ít cực đoan hơn**, khuyến khích điểm cao được phân bổ trên nhiều phần timeline — thường giúp nhị phân hóa top-\(k\) sau này **phủ** nhiều vùng có nhãn dương trong GT, cải thiện recall và overlap. Đây là dạng **tối ưu đa mục tiêu có trọng số**; học đa nhiệm / tín hiệu phụ có thể cải thiện khái quát hóa khi nhiệm phụ phù hợp ([33]), nhưng \(\lambda\) quá lớn có thể làm lệch mục tiêu chính — cần điều chỉnh trên tập kiểm định.
+
+#### 10.3.4. Tối ưu hóa: weight decay và ReduceLROnPlateau
+
+**Weight decay (AdamW).** So với baseline, triển khai optimize tăng hệ số **weight decay** (phạt \(L_2\) lên tham số, trong nền AdamW tách khỏi gradient) — thường từ mức rất nhỏ lên khoảng \(10^{-4}\). Mục đích là giảm **overfitting** khi mô hình có thêm dạng đầu vào 1024 chiều và loss phụ: trọng số không phình quá mạnh trên tập huấn luyện, cải thiện ổn định trên tập kiểm tra nếu trước đó đường cong train–val lệch ([29], [34]).
+
+**ReduceLROnPlateau.** Thay cho lịch giảm learning rate theo **epoch cố định** (ví dụ StepLR), scheduler theo dõi **lỗi kiểm định** (ví dụ `val_loss`): nếu sau `patience` lần đánh giá liên tiếp mà metric không cải thiện so với mức tốt nhất trước đó, nhân learning rate với hệ số `< 1`. Cơ chế này tương ứng bước tinh chỉnh nhỏ khi đã vào vùng lân cận cực trị, giảm **overshoot** so với giảm LR “theo lịch” bất kể loss đã hội tụ hay chưa ([35]).
+
+**Tổng hợp tác động lên metric (định tính).** Nối \(\mathbf{c}\) vào scorer giúp \(z_t\) khớp cấu trúc quan trọng của GT tốt hơn; \(\mathcal{L}_{\mathrm{div}}\) giảm kiểu chỉ highlight một khoảng; keyshot lai cân **đúng shot** và **đủ phủ**; weight decay + plateau giúp giảm overfit và hội tụ ổn định. Kết quả là đồng thời có thể tăng Precision, Recall, F-score và temporal overlap như bảng mục 10.2 — tuy nhiên **phân tách đóng góp từng thành phần** đòi hỏi ablation có kiểm soát (cùng seed, cùng dữ liệu, bật/tắt từng khối).
+
+### 10.4. Ghi chú diễn giải
+
+Cải thiện metric có hai thành phần: **(i)** đảm bảo đánh giá đúng kiến trúc và trọng số đã huấn luyện; **(ii)** các thay đổi thuật toán thực sự làm điểm số khung và tập khung được chọn khớp ground truth hơn. Trên từng video, nhị phân hóa top-\(k\) theo \(r\) khiến Precision, Recall và F-score liên động với chất lượng xếp hạng khung; temporal overlap phản ánh mức **trùng timeline** giữa dự đoán và nhãn. Mục 10.3 chỉ báo cáo **kết hợp đầy đủ** bốn khối so với baseline; để gán đích danh từng nhân tố, cần lặp thí nghiệm ablation trên cùng tách dữ liệu.
 
 ---
 
-## 11. Tài liệu tham khảo
+## 11. Kết luận
 
-Danh mục dưới đây gồm: **bộ dữ liệu** và **phương pháp tóm tắt video** (mục 8), **mô hình nền và công cụ** trong pipeline (ResNet, CLIP, Whisper, Sentence-BERT, v.v.), **phần mềm** phục vụ ứng dụng VideoIntel, các **bài khảo sát và nghiên cứu đa phương thức** thường dùng để đặt bài toán trong bối cảnh rộng hơn, **kiến trúc nhận diện video** tham chiếu cho hướng mở rộng downstream, và **cơ sở lý thuyết thuật toán tối ưu** (Adam / AdamW). Các mục được nhóm theo chủ đề; phần [19] trở đi mở rộng danh mục nền tảng ngoài các trích dẫn trực tiếp trong bảng so sánh mục 8.2.
+Báo cáo đã trình bày **mô hình đa phương thức BiLSTM có Temporal Attention** với **đặc trưng 2432 chiều**, huấn luyện có giám sát và suy luận theo **\(r=0{,}35\)**, kèm **kết quả thực nghiệm** và **ablation** (mục 8.1) cùng **bảng so sánh văn bản nghiên cứu** (mục 8.2). Nhánh **tối ưu hóa** (mục 10) cho thấy có thể cải thiện Precision, Recall, F-score và temporal overlap trên tập kiểm tra khi kết hợp nối ngữ cảnh attention vào đầu gán điểm, chọn keyshot lai, loss phụ phân đoạn và điều chỉnh tối ưu hóa — cần ablation có kiểm soát để gán đích danh từng thành phần. Trên nhánh ứng dụng, **VideoIntel** (mục 9) cho thấy **tìm kiếm CLIP** trên video tóm tắt **gần như không suy giảm** ở mức metric đã định nghĩa, trong khi **hỏi–đáp** phụ thuộc mạnh vào **mật độ và độ đúng chủ đề của transcript**. **Phụ lục** (mục 13) bổ sung một thí nghiệm downstream **phát hiện sự kiện** trên video gốc so với video tóm tắt — minh họa nhu cầu **kiểm chứng tác vụ sau tóm tắt** trước khi triển khai thực tế.
 
-### 11.1. Bộ dữ liệu và đánh giá tóm tắt video
+---
+
+## 12. Tài liệu tham khảo
+
+Danh mục dưới đây gồm: **bộ dữ liệu** và **phương pháp tóm tắt video** (mục 8), **mô hình nền và công cụ** trong pipeline (ResNet, CLIP, Whisper, Sentence-BERT, v.v.), **phần mềm** phục vụ ứng dụng VideoIntel, các **bài khảo sát và nghiên cứu đa phương thức** thường dùng để đặt bài toán trong bối cảnh rộng hơn, **kiến trúc nhận diện video** tham chiếu cho hướng mở rộng downstream, **cơ sở lý thuyết thuật toán tối ưu** (Adam / AdamW), và **công trình bổ sung cho mục 10** (tối ưu hóa). Các mục được nhóm theo chủ đề; phần [19] trở đi mở rộng danh mục nền tảng ngoài các trích dẫn trực tiếp trong bảng so sánh mục 8.2.
+
+### 12.1. Bộ dữ liệu và đánh giá tóm tắt video
 
 1. E. Apostolidis, K. Mekkas, A. I. Patras, I. Kompatsiaris, “PGL-SUM: A Novel Pointer-Generator Network for Extractive Video Summarization,” _Proc. ACM Int. Conf. on Multimedia Retrieval (ICMR)_ / bản ISM 2021 (preprint). URL: https://www.iti.gr/~bmezaris/publications/ism2021a_preprint.pdf
 2. M. Gygli, H. Grabner, H. Riemenschneider, L. Van Gool, “Creating summaries from user videos,” in _Computer Vision — ECCV 2014_, Lecture Notes in Computer Science, vol. 8695, Springer, 2014, pp. 505–520. (Tập **SumMe**.)
 3. Y. Song, J. Vallmitjana, A. Stent, A. Jaimes, “TVSum: Summarizing web videos using titles,” in _Proc. IEEE Conf. Computer Vision and Pattern Recognition (CVPR)_, 2015, pp. 5179–5187. (Tập **TVSum**.)
 
-### 11.2. Phương pháp tóm tắt video (so sánh mục 8.2)
+### 12.2. Phương pháp tóm tắt video (so sánh mục 8.2)
 
 4. J. Fajtl, H. S. Sokeh, V. Argyriou, D. Monekosso, P. Remagnino, “Summarizing Videos with Attention,” _Asian Conference on Computer Vision (ACCV)_, 2018 (thường gọi **VASNet**). Repo tham khảo: https://github.com/azhar0100/VASNet
 5. S. A. Ghauri, F. S. Khan, S. W. Zamir, J. Hayat, M. Shah, “MSVA: Multi-Stage Aggregated Transformer for Video Summarization,” _arXiv preprint_ arXiv:2104.11530, 2021. URL: https://arxiv.org/pdf/2104.11530.pdf
@@ -495,23 +582,23 @@ Danh mục dưới đây gồm: **bộ dữ liệu** và **phương pháp tóm t
 
 _(Khi so sánh số F-score giữa các phương pháp trong mục 8.2, cần đối chiếu **cùng protocol** như đã lưu ý.)_
 
-### 11.3. Mạng nền, đa phương thức và học sâu chung
+### 12.3. Mạng nền, đa phương thức và học sâu chung
 
 12. K. He, X. Zhang, S. Ren, J. Sun, “Deep Residual Learning for Image Recognition,” _IEEE Conference on Computer Vision and Pattern Recognition (CVPR)_, 2016. (**ResNet-50** làm backbone trích đặc trưng 2048 chiều.)
 13. S. Hochreiter, J. Schmidhuber, “Long Short-Term Memory,” _Neural Computation_, 9(8), 1735–1780, 1997.
 14. A. Radford, J. W. Kim, C. Hallacy, et al., “Learning Transferable Visual Models From Natural Language Supervision,” _International Conference on Machine Learning (PMLR)_, 2021 (**CLIP**). Triển khai mã nguồn mở: OpenCLIP (ví dụ ViT-B/32, trọng số OpenAI).
 15. N. Reimers, I. Gurevych, “Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks,” _Conference on Empirical Methods in Natural Language Processing (EMNLP)_, 2019. (**SentenceBERT / SBERT**, chiều 384 trong báo cáo.)
 
-### 11.4. Nhận dạng tiếng nói, LLM cục bộ và công cụ hệ thống
+### 12.4. Nhận dạng tiếng nói, LLM cục bộ và công cụ hệ thống
 
 16. A. Radford et al., “Robust Speech Recognition via Large-Scale Weak Supervision,” _Proc. Int. Conf. on Machine Learning (ICML)_, 2023 (**Whisper**).
 17. Ollama — runtime chạy mô hình ngôn ngữ cục bộ qua API HTTP (ví dụ Llama 3.2). Trang chủ: https://ollama.com
 
-### 11.5. FFmpeg
+### 12.5. FFmpeg
 
 18. FFmpeg Developers, _FFmpeg: A complete, cross-platform solution to record, convert and stream audio and video_. https://ffmpeg.org
 
-### 11.6. Khảo sát, tổng quan và đa phương thức
+### 12.6. Khảo sát, tổng quan và đa phương thức
 
 Các mục [19]–[24] là bài **review**, **survey** và nghiên cứu **đa phương thức** thường được trích khi phân tích bối cảnh và xu hướng tóm tắt video.
 
@@ -522,7 +609,7 @@ Các mục [19]–[24] là bài **review**, **survey** và nghiên cứu **đa p
 23. P. Kadam _et al._, “Recent challenges and opportunities in video summarization with machine learning algorithms,” _IEEE Access_, vol. 10, pp. 122762–122785, 2022.
 24. E. Apostolidis, E. Adamantidou, A. I. Metsai, V. Mezaris, I. Patras, “Video summarization using deep neural networks: A survey,” _Proceedings of the IEEE_, vol. 109, no. 11, pp. 1838–1863, 2021. _(Khác với [1] — đây là bài khảo sát tổng quan; [1] là PGL-SUM / mạng pointer-generator.)_
 
-### 11.7. Kiến trúc nhận diện video (tham chiếu cho tác vụ downstream)
+### 12.7. Kiến trúc nhận diện video (tham chiếu cho tác vụ downstream)
 
 Các công trình sau là **baseline kiến trúc** phổ biến khi đánh giá mô hình nhận diện trên video; có thể dùng làm tham chiếu lý thuyết khi so sánh huấn luyện trên **video gốc** và trên **video đã rút gọn**.
 
@@ -530,18 +617,93 @@ Các công trình sau là **baseline kiến trúc** phổ biến khi đánh giá
 26. Z. Liu, J. Ning, Y. Cao, Y. Wei, Z. Zhang, S. Lin, H. Hu, “Video Swin Transformer,” _IEEE Conference on Computer Vision and Pattern Recognition (CVPR)_, 2022.
 27. J. Carreira, A. Zisserman, “Quo Vadis, Action Recognition? A New Model and the Kinetics Dataset,” _IEEE Conference on Computer Vision and Pattern Recognition (CVPR)_, 2017 (**I3D** / Inflated 3D ConvNet).
 
-### 11.8. Thuật toán tối ưu Adam và AdamW
+### 12.8. Thuật toán tối ưu Adam và AdamW
 
 28. D. P. Kingma, J. Ba, “Adam: A Method for Stochastic Optimization,” _International Conference on Learning Representations (ICLR)_, 2015.
 29. I. Loshchilov, F. Hutter, “Decoupled Weight Decay Regularization,” _International Conference on Learning Representations (ICLR)_, 2019 (**AdamW**).
 
-### 11.9. Liên kết nội dung giữa các mục trích dẫn
+### 12.9. Liên kết nội dung giữa các mục trích dẫn
 
 - Các mục **[7]**, **[14]**, **[15]**, **[16]** lần lượt tương ứng **BiLSTM / LSTM cho tóm tắt video** (Zhang et al., ECCV 2016), **CLIP**, **Sentence-BERT**, **Whisper** — các công trình nền tảng được nhắc lại nhiều lần trong báo cáo vì vai trò trực tiếp trong pipeline.
 - Thuật toán tối ưu **AdamW** dùng trong huấn luyện có cơ sở lý thuyết tại **[28]** và **[29]**.
+- Mục **10** bổ sung trích dẫn **[30]–[35]** (encoder–decoder attention, submodular mixtures, coverage/diversity, multitask learning, regularization, lịch giảm learning rate thích nghi).
+
+### 12.10. Bổ sung cho mục 10 (kiến trúc tối ưu, chọn keyshot, học đa mục tiêu, huấn luyện)
+
+30. H. Ji, M. Xu, J. Yang, “Video Summarization with Attention-Based Encoder-Decoder Networks,” _arXiv preprint_ arXiv:1708.09545, 2017.
+31. M. Gygli, H. Grabner, L. Van Gool, “Video Summarization by Learning Submodular Mixtures of Objectives,” in _Proc. IEEE Conf. Computer Vision and Pattern Recognition (CVPR)_, 2015.
+32. H. Lin, J. Bilmes, “A Class of Submodular Functions for Document Summarization,” in _Proc. North American Chapter of the Association for Computational Linguistics (NAACL)_, 2011.
+33. R. Caruana, “Multitask Learning,” _Machine Learning_, vol. 28, no. 1, pp. 41–75, 1997.
+34. I. Goodfellow, Y. Bengio, A. Courville, _Deep Learning_, MIT Press, 2016 — phần về regularization và weight decay (truy cập trực tuyến: https://www.deeplearningbook.org/contents/regularization.html).
+35. PyTorch Documentation, “ReduceLROnPlateau,” phiên bản ổn định — https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.ReduceLROnPlateau.html
 
 ---
 
-## Phụ lục: Thí nghiệm ablation
+## 13. Phụ lục
 
-Các biến thể **BiLSTM chỉ hình**, **full đa phương thức**, **không attention**, **UniLSTM** đều đã có **số liệu** ở mục 8.1. Các hướng mở rộng khác (domain mới, downstream như phân loại / captioning trên video tóm tắt) có thể phát triển tiếp ngoài phạm vi báo cáo này.
+### 13.1. Phát hiện sự kiện (downstream: video gốc so với video tóm tắt)
+
+Phụ lục này mô tả một thí nghiệm **độc lập** với huấn luyện BiLSTM trên SumMe/TVSum: kiểm tra xem **video đã tóm tắt** bằng pipeline của đề tài có còn mang đủ tín hiệu hành vi để huấn luyện một bộ phát hiện sự kiện đơn giản hay không, khi so với **video gốc**. Tác vụ được cố định hóa: cùng loại đặc trưng, cùng học máy (rừng ngẫu nhiên), hai lần huấn luyện chỉ khác nguồn pixel (gốc vs tóm tắt) và nhãn thời gian đã quy đổi cho nhánh tóm tắt.
+
+#### 13.1.1. Mục đích và giả thuyết
+
+**Mục tiêu:** So sánh hiệu năng khi huấn luyện trên **điều kiện A** (video đầy đủ) và **điều kiện B** (video rút gọn do mô hình tóm tắt sinh ra). Nếu các đoạn được giữ trong bản tóm tắt vẫn bao phủ vùng biến động (va chạm, phanh gấp, v.v.), nhánh B có thể đạt MAE thời gian tốt hơn hoặc tương đương nhánh A do chuỗi ngắn hơn, nhiễu thời gian ít hơn; nếu tóm tắt cắt mất hoặc lệch đoạn chứa sự kiện, nhánh B có thể kém hơn.
+
+**Thiết kế:** Hai mô hình được huấn luyện riêng; nhãn thời điểm sự kiện trên video tóm tắt được **ánh xạ** từ thời gian gốc sang thời gian trên bản rút gọn bằng cách tích lũy độ dài các đoạn được giữ theo thứ tự: nếu thời điểm gốc nằm trong một đoạn được giữ, nó được chuyển sang vị trí tương ứng trên trục thời gian của video tóm tắt; nếu rơi vào phần bị loại bỏ, nhãn có thể không dùng được tùy quy ước.
+
+#### 13.1.2. Phát biểu bài toán, đầu vào và đầu ra
+
+**Đầu vào:** Một tệp video; hệ thống đọc luồng khung, lấy mẫu cố định (ví dụ 4 khung/giây), tính một vector đặc trưng thống kê cố định chiều **không** dùng mạng học sâu ở tầng này.
+
+**Đầu ra:** (1) **Phân loại nhị phân** có/không sự kiện mục tiêu (tai nạn); (2) **Hồi quy thời điểm** \(t\) (giây) trên đúng trục thời gian của video đang xử lý. Suy luận cho xác suất lớp dương và thời điểm; thời điểm hồi quy được giới hạn trong \([0,T]\) với \(T\) là độ dài video.
+
+**Vector đặc trưng (mỗi video một vector):** độ dài, số khung đã lấy mẫu, trung bình và độ lệch chuẩn chuỗi độ chuyển động giữa hai khung lấy mẫu liên tiếp (trên ảnh xám giảm phân giải), giá trị cực đại chuyển động, thống kê độ sáng, và thời điểm **đỉnh chuyển động** trên chuỗi lấy mẫu. Đặc trưng trích qua xử lý khung hình kiểu OpenCV [37].
+
+#### 13.1.3. Tập dữ liệu thí điểm và giới hạn
+
+| Tập | Số video |
+|-----|----------|
+| Huấn luyện | 31 |
+| Kiểm định | 8 |
+| Kiểm tra | 6 |
+| **Cộng** | **45** |
+
+Mỗi video có nhãn định danh, thời điểm sự kiện, thời điểm cảnh báo (nếu dùng), và nhãn lớp. Tập được **chuẩn bị thủ công** (gán thời điểm cần xem video); quy mô nhỏ do chi phí gán nhãn. **Hạn chế quan trọng:** trong các split đang dùng, **mọi mẫu đều có nhãn lớp dương** (có sự kiện). Do đó **accuracy** và **F1** trên các tập này không kiểm tra khả năng phát hiện lớp âm; chỉ số có ý nghĩa chính để so A/B là **MAE thời gian** (và so sánh tương đối giữa hai nhánh).
+
+#### 13.1.4. Phương pháp huấn luyện
+
+- **Phân loại:** rừng ngẫu nhiên [36] với trọng số lớp cân bằng (số cây ví dụ 300).
+- **Hồi quy thời điểm:** một rừng ngẫu nhiên riêng (ví dụ 200 cây), chỉ huấn luyện trên mẫu lớp dương **có** nhãn thời điểm hợp lệ.
+
+Hai điều kiện A/B dùng **cùng** siêu tham số và cùng quy trình trích đặc trưng; chỉ khác nội dung video và nhãn thời gian đã quy đổi (B).
+
+#### 13.1.5. Tiêu chí đánh giá
+
+- **Accuracy, F1:** báo cáo theo thông lệ; trên pilot toàn lớp dương, chúng **không phân biệt** đáng kể hai nhánh và **không** đo lường phát hiện “không tai nạn”.
+- **MAE:** \(\frac{1}{N}\sum \lvert t_{\mathrm{gt}} - t_{\mathrm{pred}} \rvert\) trên mẫu có nhãn thời gian và dự đoán hợp lệ (giây) — chỉ số trung tâm để so A/B.
+- **Chi phí tính toán:** tỷ lệ thuận với độ dài video sau lấy mẫu; video tóm tắt thường ngắn hơn nên có thể rẻ hơn mỗi mẫu; không ghi nhận trong bảng dưới.
+
+#### 13.1.6. Kết quả số và diễn giải ngắn
+
+| Tập | Số mẫu | Accuracy (A / B) | F1 (A / B) | MAE thời gian — giây (A / B) |
+|-----|--------|------------------|------------|------------------------------|
+| Huấn luyện | 31 | 1.00 / 1.00 | 1.00 / 1.00 | **0.305 / 0.470** |
+| Kiểm định | 8 | 1.00 / 1.00 | 1.00 / 1.00 | **1.622 / 0.292** |
+| Kiểm tra | 6 | 1.00 / 1.00 | 1.00 / 1.00 | **0.549 / 1.269** |
+
+Trên **kiểm định**, B có MAE thấp hơn A; trên **kiểm tra**, A thấp hơn B; trên **huấn luyện**, A thấp hơn B. Với chỉ 8 và 6 video ở hai tập sau, **đảo chiều** giữa kiểm định và kiểm tra **không** cho phép kết luận thống kê vững — chỉ gợi ý cần mở rộng dữ liệu, bổ sung lớp âm, và có thể nhiều fold.
+
+#### 13.1.7. Thảo luận và hướng mở rộng
+
+Video tóm tắt có thể **tập trung** thống kê chuyển động quanh đoạn được giữ — có lợi trên một split nhưng dễ **lệch** nếu keyshot không khớp vùng nhãn. Mở rộng quy mô, cân bằng lớp, và nâng cấp đặc trưng (embedding học sâu) là hướng tự nhiên khi chuyển từ pilot sang đánh giá nghiêm ngặt.
+
+**Trích dẫn trực tiếp cho phụ lục:** rừng ngẫu nhiên [36]; xử lý khung hình [37].
+
+36. L. Breiman, “Random Forests,” _Machine Learning_, vol. 45, no. 1, pp. 5–32, 2001.
+37. G. Bradski, “The OpenCV Library,” _Dr. Dobb’s Journal of Software Tools_, 2000; OpenCV — https://opencv.org
+
+### 13.2. Thí nghiệm ablation (BiLSTM / đa phương thức / attention)
+
+Các biến thể **BiLSTM chỉ hình**, **full đa phương thức**, **không attention**, **UniLSTM** đều đã có **số liệu** ở mục 8.1. Thí nghiệm đo lường cùng protocol đánh giá F-score và overlap như phần còn lại của báo cáo; độc giả có thể đối chiếu trực tiếp bảng mục 8.1 để xem đóng góp từng thành phần kiến trúc (đa phương thức, attention) so với nhánh thuần hình hoặc thuần LSTM một chiều.
+
+Các hướng mở rộng khác — domain dữ liệu mới, downstream bổ sung (phân loại nội dung, chú thích, truy hồi) trên video tóm tắt — nằm ngoài phạm vi báo cáo này nhưng đã được đặt trong bối cảnh tổng quan tại mục 1 và mục 12.7.

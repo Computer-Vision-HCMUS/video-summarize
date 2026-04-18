@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -14,7 +14,10 @@ from .attention import TemporalAttention
 class BiLSTMSummarizer(nn.Module):
     """
     BiLSTM that consumes frame features and outputs frame importance scores.
-    Optional temporal attention for context; scores are per-frame.
+
+    Fix 1: Attention context được fuse vào scorer thay vì bỏ phí.
+    Mỗi frame score = f(lstm_out[t], attn_context) thay vì chỉ f(lstm_out[t]).
+    → Model biết frame nào quan trọng hơn trong ngữ cảnh toàn video.
     """
 
     def __init__(
@@ -25,11 +28,13 @@ class BiLSTMSummarizer(nn.Module):
         dropout: float = 0.3,
         bidirectional: bool = True,
         use_attention: bool = True,
+        fuse_attention_context: bool = True,
     ) -> None:
         super().__init__()
         self.hidden_size = hidden_size
         self.bidirectional = bidirectional
         self.use_attention = use_attention
+        self.fuse_attention_context = fuse_attention_context
         self.num_directions = 2 if bidirectional else 1
 
         self.lstm = nn.LSTM(
@@ -41,12 +46,18 @@ class BiLSTMSummarizer(nn.Module):
             bidirectional=bidirectional,
         )
         out_h = hidden_size * self.num_directions
+
         if use_attention:
             self.attention = TemporalAttention(out_h)
+            # Mặc định (optimize): concat context toàn video vào scorer.
+            # fuse_attention_context=False: checkpoint cũ — attention chỉ để trả weights, scorer chỉ nhận lstm out.
+            scorer_in = out_h * 2 if fuse_attention_context else out_h
         else:
             self.attention = None
+            scorer_in = out_h
+
         self.scorer = nn.Sequential(
-            nn.Linear(out_h, hidden_size),
+            nn.Linear(scorer_in, hidden_size),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_size, 1),
@@ -72,7 +83,41 @@ class BiLSTMSummarizer(nn.Module):
 
         attn_weights = None
         if self.attention is not None:
-            _, attn_weights = self.attention(out, lengths=lengths)
+            context, attn_weights = self.attention(out, lengths=lengths)
+            if self.fuse_attention_context:
+                T = out.size(1)
+                context_expanded = context.unsqueeze(1).expand(-1, T, -1)
+                scorer_input = torch.cat([out, context_expanded], dim=-1)
+            else:
+                scorer_input = out
+        else:
+            scorer_input = out
 
-        scores = self.scorer(out).squeeze(-1)
+        scores = self.scorer(scorer_input).squeeze(-1)  # (B, T)
         return scores, attn_weights
+
+    @staticmethod
+    def infer_attention_flags_from_state_dict(
+        state_dict: Dict[str, torch.Tensor],
+        hidden_size: int,
+        bidirectional: bool,
+    ) -> Tuple[bool, bool]:
+        """
+        Suy ra (use_attention, fuse_attention_context) từ shape `scorer.0.weight`
+        và sự có mặt của module `attention.*` — khớp checkpoint cũ (512) vs optimize (1024).
+        """
+        num_directions = 2 if bidirectional else 1
+        out_h = hidden_size * num_directions
+        w = state_dict["scorer.0.weight"]
+        in_f = int(w.shape[1])
+        has_attn = any(k.startswith("attention.") for k in state_dict)
+        if in_f == 2 * out_h:
+            return True, True
+        if in_f == out_h:
+            if has_attn:
+                return True, False
+            return False, False
+        raise ValueError(
+            f"Unsupported scorer input dim {in_f} (expected {out_h} or {2 * out_h}); "
+            "hidden_size/bidirectional may not match checkpoint."
+        )

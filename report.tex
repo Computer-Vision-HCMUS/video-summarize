@@ -721,6 +721,161 @@ factors. The two extremes are \textbf{video\_01} (complete topic drift) and
 \end{itemize}
 
 % =============================================================================
+\section{Architecture and Training Optimization}
+\label{sec:optimize}
+% =============================================================================
+
+This section describes an optimized pipeline variant evaluated against the
+\textbf{baseline} configuration of Section~\ref{sec:pipeline} on the same
+SumMe/TVSum test split. The motivation follows well-established directions in
+the literature: attention-augmented encoder--decoder networks for video
+summarization~\cite{ji2017attention,fajtl2018,zhang2016lstm}, subset selection
+balancing relevance, coverage, and diversity~\cite{gygli2015submodular,lin2011submodular},
+multi-objective training with auxiliary supervision signals~\cite{caruana1997multitask},
+and adaptive regularization and learning-rate
+scheduling~\cite{loshchilov2019,goodfellow2016,pytorch_reducelr}.
+
+\subsection{Evaluation Protocol}
+
+Both checkpoints are evaluated on the \textbf{same held-out test split},
+with identical random seed, summary ratio $r{=}0.35$, and evaluation
+pipeline. Reported metrics are Precision, Recall, F-score (on binarized
+top-$k$ frame labels), and \textbf{temporal overlap} (frame-level IoU between
+predicted and ground-truth segments). A prerequisite for a meaningful
+comparison is that the model is loaded with the \textbf{correct architecture
+flag}: the optimized variant concatenates the global attention context vector
+$\mathbf{c}$ with the per-frame hidden state before the scorer, yielding a
+1024-dimensional scorer input instead of 512. Loading a mismatched checkpoint
+will produce meaningless numbers.
+
+\subsection{Quantitative Results on the Test Set}
+
+Table~\ref{tab:optimize_results} reports a representative single-seed
+measurement; minor variation across seeds is expected.
+
+\begin{table}[H]
+\centering
+\caption{Baseline vs.\ Optimized Variant: Test-Set Metrics}
+\label{tab:optimize_results}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Metric} & \textbf{Baseline} & \textbf{Optimized} & \textbf{$\Delta$} \\
+\midrule
+Precision         & 0.4767 & 0.5293 & $+0.0526$ \\
+Recall            & 0.4767 & 0.5293 & $+0.0526$ \\
+F-score           & 0.4767 & 0.5293 & $+0.0526$ \\
+Temporal overlap  & 0.2347 & 0.3709 & $+0.1363$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Principal Modifications}
+
+Four complementary modifications are applied jointly. Notation follows
+Section~\ref{sec:pipeline}: sequence length $T$, logit $z_t$, predicted
+probability $\hat{y}_t = \sigma(z_t)$, and global attention context
+$\mathbf{c} \in \mathbb{R}^{512}$.
+
+\subsubsection{Attention-Context Fusion in the Scorer}
+
+\textbf{Baseline.} The per-frame scorer receives only the local BiLSTM hidden
+state: $z_t = f_{\mathrm{base}}(\mathbf{h}_t)$, where the first linear layer
+has 512 input units.
+
+\textbf{Optimized.} The global context vector $\mathbf{c}$ (identical for all
+$t$, but encoding the entire sequence distribution) is concatenated with the
+local state:
+\begin{equation}
+  \mathbf{u}_t = \bigl[\mathbf{h}_t \,;\, \mathbf{c}\bigr]
+               \in \mathbb{R}^{1024},
+  \qquad
+  z_t = f_{\mathrm{opt}}(\mathbf{u}_t).
+  \label{eq:fuse}
+\end{equation}
+This \emph{late fusion} allows the scorer to learn interactions of the form
+``how salient is frame $t$ relative to the overall content distribution of the
+clip,'' consistent with attention-based encoder--decoder approaches in video
+summarization~\cite{ji2017attention,fajtl2018}. \textbf{Important:} baseline
+and optimized checkpoints are weight-incompatible at the scorer layer; full
+retraining with the correct architecture flag is required.
+
+\subsubsection{Hybrid Quality--Diversity Keyshot Selection}
+
+After shot-level score smoothing, the total budget $k_{\mathrm{tot}} \approx
+\lceil r \cdot L \rceil$ is partitioned into a \emph{quality} component and a
+\emph{diversity} component:
+\begin{equation}
+  k_q = \mathrm{round}(\rho\,k_{\mathrm{tot}}),
+  \qquad
+  k_d = k_{\mathrm{tot}} - k_q,
+  \qquad \rho \approx 0.7.
+  \label{eq:hybrid}
+\end{equation}
+The $k_q$ shots are selected greedily by descending score (maximizing
+saliency), while the remaining $k_d$ slots are filled by shots that maximize
+temporal coverage of previously unrepresented regions. Compared to pure
+greedy top-$k$, the hybrid strategy reduces recall loss from clustering all
+selections in a short high-score interval; compared to uniform forced
+coverage, it avoids including low-score shots from uninformative
+regions~\cite{gygli2015submodular,lin2011submodular}.
+
+\subsubsection{Auxiliary Segment-Coverage Loss}
+
+The primary training loss remains masked BCE (Eq.~\ref{eq:bce}). An
+auxiliary \emph{diversity penalty} discourages the model from concentrating
+high predicted probabilities in a single temporal region. The video is
+partitioned into $K$ contiguous segments $\{S_j\}_{j=1}^{K}$, where $K$ is
+controlled by the \texttt{n\_segments} hyperparameter. A segment
+representative score is defined as the peak predicted probability within each
+segment:
+\begin{equation}
+  m_j = \max_{t \in S_j}\,\sigma(z_{i,t}).
+\end{equation}
+The auxiliary loss penalizes high variance across segment representatives:
+\begin{equation}
+  \mathcal{L}_{\mathrm{div}} = \mathrm{Var}(m_1,\dots,m_K),
+  \qquad
+  \mathcal{L} = \mathcal{L}_{\mathrm{BCE}} + \lambda\,\mathcal{L}_{\mathrm{div}},
+  \label{eq:total_loss}
+\end{equation}
+where $\lambda = \texttt{diversity\_weight} \ge 0$. A large variance implies
+that only a few segments have high-scoring peaks; minimizing $\mathcal{L}_{\mathrm{div}}$
+encourages a more uniform distribution of salient predictions across the
+timeline, thereby improving recall and temporal overlap after top-$k$
+binarization. This is an instance of weighted multi-objective
+training~\cite{caruana1997multitask}; overly large $\lambda$ may shift focus
+from the primary ranking objective and should be tuned on the validation set.
+
+\subsubsection{Regularization and Adaptive Learning-Rate Scheduling}
+
+\textbf{Increased weight decay.} The weight decay coefficient in AdamW is
+increased from $10^{-5}$ (baseline) to $\approx 10^{-4}$. The larger
+decoupled $L_2$ penalty suppresses weight magnitude growth in the wider
+1024-dimensional scorer, mitigating overfitting when the auxiliary loss
+introduces additional gradient
+signal~\cite{loshchilov2019,goodfellow2016}.
+
+\textbf{ReduceLROnPlateau scheduler.} The fixed-epoch StepLR scheduler is
+replaced by \texttt{ReduceLROnPlateau}, which monitors the validation loss
+and multiplies the learning rate by a factor $< 1$ whenever no improvement
+is observed for \texttt{patience} consecutive evaluations~\cite{pytorch_reducelr}.
+This adaptive scheme reduces overshoot near convergence and yields a more
+stable final checkpoint compared to a fixed decay schedule that is agnostic
+to the current optimization state.
+
+\subsection{Interpretation of Results}
+
+The four modifications are reported as a combined system in
+Table~\ref{tab:optimize_results}; per-component attribution requires
+controlled ablation experiments with a fixed seed and data split, which are
+left for future work. Qualitatively: context fusion in
+Eq.~\eqref{eq:fuse} improves frame-level ranking quality; the diversity
+loss in Eq.~\eqref{eq:total_loss} reduces temporal concentration; the hybrid
+keyshot strategy in Eq.~\eqref{eq:hybrid} balances saliency against coverage;
+and the regularization and scheduling changes stabilize training and reduce
+overfitting---jointly improving all four reported metrics.
+
+% =============================================================================
 \section{Conclusion}
 % =============================================================================
 
@@ -730,6 +885,11 @@ learning at summary ratio $r{=}0.35$. Ablation experiments confirm the
 individual contributions of the audio-language branch (+2.0\,pp F-score),
 bidirectional encoding (+5.7\,pp), and Temporal Attention (+3.7\,pp).
 
+The \textbf{optimized variant} (Section~\ref{sec:optimize}) further improves
+F-score by $+5.3$\,pp and temporal overlap by $+13.6$\,pp over the baseline
+through attention-context fusion, hybrid keyshot selection, an auxiliary
+coverage loss, and adaptive regularization.
+
 The \textbf{VideoIntel} evaluation demonstrates that \textbf{CLIP semantic
 search} on summaries suffers \textbf{negligible degradation}, while
 \textbf{Q\&A quality} depends critically on transcript density and topical
@@ -737,13 +897,150 @@ accuracy---reflecting video summarization as \textbf{lossy compression} and
 underlining the need for \textbf{downstream task validation} before deployment.
 
 % =============================================================================
-\section*{Appendix: Ablation Experiments}
+\appendix
 % =============================================================================
 
-All ablation variants (visual-only BiLSTM, full multimodal BiLSTM, no
-attention, UniLSTM) are reported with numerical results in
-Table~\ref{tab:ablation_results}. Extensions to new domains or downstream
-tasks are left as future work.
+\section{Downstream Event Detection: Original vs.\ Summary Video}
+\label{app:event_detection}
+
+This appendix reports a \textbf{downstream experiment} independent of the
+BiLSTM training on SumMe/TVSum. The goal is to assess whether videos produced
+by the summarization pipeline retain sufficient behavioral signal to train a
+simple event detector, compared to the original full-length videos. The task
+is fully controlled: identical feature type, identical classifier (random
+forest), and two training conditions differing only in video source (original
+vs.\ summary) and the time-axis label mapping for the summary branch.
+
+\subsection{Motivation and Hypothesis}
+
+\textbf{Condition A} trains on full-length videos; \textbf{Condition B} trains
+on the corresponding summaries. If the retained shots cover the high-motion
+regions associated with events (e.g., collisions, hard braking), Condition B
+may achieve lower or comparable temporal MAE owing to shorter sequences and
+reduced noise. Conversely, if the summarizer discards or misaligns the
+event-containing segments, Condition B will underperform.
+
+Event timestamps for Condition B are obtained by accumulating the durations of
+retained segments in order: if a ground-truth event timestamp falls within a
+retained segment, it is mapped to the corresponding position on the summary
+timeline; if it falls in a discarded region, the sample may be excluded
+depending on the annotation convention.
+
+\subsection{Task Definition}
+
+\textbf{Input.} A single video file; the system samples frames at a fixed
+rate (e.g., 4\,fps) and computes a fixed-dimensional statistical feature
+vector without any deep network at this stage.
+
+\textbf{Outputs.} (1)~\emph{Binary classification}: event present / absent;
+(2)~\emph{Temporal regression}: predicted event timestamp $\hat{t}$
+(seconds), clipped to $[0, T]$ where $T$ is the video duration.
+
+\textbf{Feature vector (per video).} Duration, sampled frame count, mean and
+standard deviation of inter-frame motion magnitude (computed on
+downsampled grayscale frames via OpenCV~\cite{bradski2000}), peak motion
+value, brightness statistics, and the temporal position of the motion peak.
+
+\subsection{Pilot Dataset}
+
+\begin{table}[H]
+\centering
+\caption{Pilot Dataset Split for Event Detection}
+\label{tab:event_split}
+\begin{tabular}{lc}
+\toprule
+\textbf{Split} & \textbf{Videos} \\
+\midrule
+Training   & 31 \\
+Validation & 8  \\
+Test       & 6  \\
+\midrule
+\textbf{Total} & \textbf{45} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All labels were assigned manually. \textbf{Limitation:} every sample in the
+current splits carries a positive event label; accordingly, accuracy and F1
+are uninformative about negative-class discrimination. The central comparative
+metric is \textbf{temporal MAE} between the two conditions.
+
+\subsection{Training Procedure}
+
+\begin{itemize}
+  \item \textbf{Classifier:} random forest~\cite{breiman2001} with
+        class-balanced sample weights (300 trees).
+  \item \textbf{Temporal regressor:} a separate random forest (200 trees)
+        trained only on positive-class samples with valid timestamps.
+\end{itemize}
+Both conditions share identical hyperparameters and feature extraction;
+only the video source and remapped labels differ.
+
+\subsection{Evaluation Criteria}
+
+Accuracy and F1 are reported for completeness but are not discriminative
+under an all-positive label distribution. The primary metric is:
+\begin{equation}
+  \mathrm{MAE} = \frac{1}{N}\sum_{i=1}^{N}
+    \bigl|t_{\mathrm{gt},i} - \hat{t}_i\bigr| \quad (\text{seconds}).
+\end{equation}
+
+\subsection{Results}
+
+\begin{table}[H]
+\centering
+\caption{Event Detection Results: Condition A (Original) vs.\ B (Summary)}
+\label{tab:event_results}
+\begin{tabular}{lcrrrr}
+\toprule
+\textbf{Split} & \textbf{$n$} &
+  \multicolumn{2}{c}{\textbf{Acc / F1 (A / B)}} &
+  \multicolumn{2}{c}{\textbf{MAE in s (A / B)}} \\
+\midrule
+Training   & 31 & 1.00 / 1.00 & 1.00 / 1.00 & 0.305 & 0.470 \\
+Validation & 8  & 1.00 / 1.00 & 1.00 / 1.00 & 1.622 & 0.292 \\
+Test       & 6  & 1.00 / 1.00 & 1.00 / 1.00 & 0.549 & 1.269 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+On the \textbf{validation} split, Condition B achieves lower MAE; on the
+\textbf{test} split, Condition A performs better. With only 8 and 6 videos
+respectively, this reversal does not permit statistically robust conclusions.
+The results suggest that summary-based features can be competitive when the
+retained shots align with event regions, but the small scale prevents
+generalization.
+
+\subsection{Discussion and Future Directions}
+
+Summary videos may concentrate motion statistics around retained segments,
+benefiting temporal regression on splits where those segments coincide with
+event regions, while degrading on splits where the summarizer misaligned the
+selection. Scaling the dataset, adding negative-class samples, and adopting
+deep learned features (e.g., I3D~\cite{carreira2017} or
+TimeSformer~\cite{bertasius2021}) are natural extensions toward a rigorous
+evaluation.
+
+% =============================================================================
+\section{Ablation Study: Architecture Components}
+\label{app:ablation}
+% =============================================================================
+
+Numerical results for all ablation variants---visual-only BiLSTM, full
+multimodal BiLSTM, BiLSTM without Temporal Attention, and unidirectional
+UniLSTM---are reported in Table~\ref{tab:ablation_results} of
+Section~\ref{sec:pipeline}. All variants share the same evaluation protocol
+(fixed split, fixed summary ratio $r{=}0.35$, identical post-processing),
+enabling direct attribution of performance differences to individual
+architectural choices. The incremental contributions of the multimodal branch
+(+2.0\,pp F-score), Temporal Attention (+3.7\,pp), and bidirectional encoding
+(+5.7\,pp) are consistent with the broader literature on sequential
+summarization models~\cite{zhang2016lstm,fajtl2018}.
+
+Extensions to new content domains or additional downstream tasks
+(content classification, captioning, retrieval on summarized video) are
+outside the scope of this report but are motivated by the analysis in
+Section~\ref{sec:optimize} and Appendix~\ref{app:event_detection}.
 
 % =============================================================================
 %  References
@@ -893,6 +1190,48 @@ in \textit{ICLR}, 2015.
 I.~Loshchilov and F.~Hutter,
 ``Decoupled Weight Decay Regularization (AdamW),''
 in \textit{ICLR}, 2019.
+
+% ── New references for Section 10 and Appendix ───────────────────────────────
+
+\bibitem{ji2017attention}
+H.~Ji, M.~Xu, and J.~Yang,
+``Video Summarization with Attention-Based Encoder-Decoder Networks,''
+\textit{arXiv:1708.09545}, 2017.
+
+\bibitem{gygli2015submodular}
+M.~Gygli, H.~Grabner, and L.~Van Gool,
+``Video Summarization by Learning Submodular Mixtures of Objectives,''
+in \textit{CVPR}, 2015.
+
+\bibitem{lin2011submodular}
+H.~Lin and J.~Bilmes,
+``A Class of Submodular Functions for Document Summarization,''
+in \textit{Proc. NAACL}, 2011.
+
+\bibitem{caruana1997multitask}
+R.~Caruana,
+``Multitask Learning,''
+\textit{Machine Learning}, vol.~28, no.~1, pp.~41--75, 1997.
+
+\bibitem{goodfellow2016}
+I.~Goodfellow, Y.~Bengio, and A.~Courville,
+\textit{Deep Learning}.
+MIT Press, 2016.
+
+\bibitem{pytorch_reducelr}
+PyTorch Developers,
+``\texttt{ReduceLROnPlateau},'' in \textit{PyTorch Documentation (Stable)},
+\url{https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.ReduceLROnPlateau.html}.
+
+\bibitem{breiman2001}
+L.~Breiman,
+``Random Forests,''
+\textit{Machine Learning}, vol.~45, no.~1, pp.~5--32, 2001.
+
+\bibitem{bradski2000}
+G.~Bradski,
+``The OpenCV Library,''
+\textit{Dr.\ Dobb's Journal of Software Tools}, 2000.
 
 \end{thebibliography}
 
