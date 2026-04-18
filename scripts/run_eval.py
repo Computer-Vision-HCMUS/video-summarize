@@ -81,13 +81,20 @@ def main() -> None:
         seed=config.seed,
     )
 
+    bidirectional = getattr(config.model, "bidirectional", True)
+    use_attention, fuse_attention = BiLSTMSummarizer.infer_attention_flags_from_state_dict(
+        state_dict,
+        hidden_size=config.model.hidden_size,
+        bidirectional=bidirectional,
+    )
     model = BiLSTMSummarizer(
         input_dim=model_input_dim,
         hidden_size=config.model.hidden_size,
         num_layers=config.model.num_layers,
         dropout=config.model.dropout,
-        bidirectional=getattr(config.model, "bidirectional", True),
-        use_attention=getattr(config.model, "use_attention", True),
+        bidirectional=bidirectional,
+        use_attention=use_attention,
+        fuse_attention_context=fuse_attention,
     )
     model.load_state_dict(state_dict)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

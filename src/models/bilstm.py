@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -28,11 +28,13 @@ class BiLSTMSummarizer(nn.Module):
         dropout: float = 0.3,
         bidirectional: bool = True,
         use_attention: bool = True,
+        fuse_attention_context: bool = True,
     ) -> None:
         super().__init__()
         self.hidden_size = hidden_size
         self.bidirectional = bidirectional
         self.use_attention = use_attention
+        self.fuse_attention_context = fuse_attention_context
         self.num_directions = 2 if bidirectional else 1
 
         self.lstm = nn.LSTM(
@@ -47,9 +49,9 @@ class BiLSTMSummarizer(nn.Module):
 
         if use_attention:
             self.attention = TemporalAttention(out_h)
-            # Scorer nhận [lstm_out || attn_context] cho mỗi frame
-            # attn_context được expand để concat theo chiều time
-            scorer_in = out_h * 2
+            # Mặc định (optimize): concat context toàn video vào scorer.
+            # fuse_attention_context=False: checkpoint cũ — attention chỉ để trả weights, scorer chỉ nhận lstm out.
+            scorer_in = out_h * 2 if fuse_attention_context else out_h
         else:
             self.attention = None
             scorer_in = out_h
@@ -81,18 +83,41 @@ class BiLSTMSummarizer(nn.Module):
 
         attn_weights = None
         if self.attention is not None:
-            # context: (B, H) — global video context
-            # weights: (B, T) — attention distribution
             context, attn_weights = self.attention(out, lengths=lengths)
-
-            # Expand context → (B, T, H) để concat với mỗi frame
-            T = out.size(1)
-            context_expanded = context.unsqueeze(1).expand(-1, T, -1)
-
-            # Fuse: mỗi frame thấy cả local (lstm_out) lẫn global (context)
-            scorer_input = torch.cat([out, context_expanded], dim=-1)
+            if self.fuse_attention_context:
+                T = out.size(1)
+                context_expanded = context.unsqueeze(1).expand(-1, T, -1)
+                scorer_input = torch.cat([out, context_expanded], dim=-1)
+            else:
+                scorer_input = out
         else:
             scorer_input = out
 
         scores = self.scorer(scorer_input).squeeze(-1)  # (B, T)
         return scores, attn_weights
+
+    @staticmethod
+    def infer_attention_flags_from_state_dict(
+        state_dict: Dict[str, torch.Tensor],
+        hidden_size: int,
+        bidirectional: bool,
+    ) -> Tuple[bool, bool]:
+        """
+        Suy ra (use_attention, fuse_attention_context) từ shape `scorer.0.weight`
+        và sự có mặt của module `attention.*` — khớp checkpoint cũ (512) vs optimize (1024).
+        """
+        num_directions = 2 if bidirectional else 1
+        out_h = hidden_size * num_directions
+        w = state_dict["scorer.0.weight"]
+        in_f = int(w.shape[1])
+        has_attn = any(k.startswith("attention.") for k in state_dict)
+        if in_f == 2 * out_h:
+            return True, True
+        if in_f == out_h:
+            if has_attn:
+                return True, False
+            return False, False
+        raise ValueError(
+            f"Unsupported scorer input dim {in_f} (expected {out_h} or {2 * out_h}); "
+            "hidden_size/bidirectional may not match checkpoint."
+        )

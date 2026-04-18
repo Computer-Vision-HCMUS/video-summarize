@@ -80,5 +80,6 @@ Mỗi epoch ghi **`lr`** hiện tại vào `history["lr"]`.
 
 ## Ghi chú khi merge / tái lập thí nghiệm
 
-- Checkpoint cũ từ `main` **không tương thích trực tiếp** với trọng số `scorer` mới (thay đổi kích thước lớp Linear đầu vào khi `use_attention: true`). Cần huấn luyện lại hoặc chỉ load phần trùng khớp một cách có chủ đích.
+- **Inference / eval:** `BiLSTMSummarizer` nhận diện qua shape `scorer.0.weight`: checkpoint cũ (scorer chỉ nhận LSTM `out`, ví dụ 512 chiều) vs checkpoint optimize (concat context, 1024 chiều). `run_eval.py`, `compares-optimize.py`, `app.py` dùng chung logic này.
+- **Huấn luyện tiếp / resume:** checkpoint cũ **không** merge trực tiếp vào kiến trúc fuse mới (tham số scorer khác hẳn); cần train từ đầu với code optimize hoặc load có chọn lọc.
 - Để chỉnh mức “đều nội dung” vs “đúng điểm GT”, có thể tinh chỉnh `diversity_weight`, `n_segments`, và `quality_ratio` trong `select_keyshots_improved`.

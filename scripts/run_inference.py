@@ -35,16 +35,25 @@ def main() -> None:
         config.paths.features_root,
         feature_dim=config.features.feature_dim,
     )
+    ckpt = torch.load(args.checkpoint, map_location="cpu")
+    state_dict = ckpt["model_state_dict"]
+    model_input_dim = int(state_dict["lstm.weight_ih_l0"].shape[1])
+    bidirectional = getattr(config.model, "bidirectional", True)
+    use_attention, fuse_attention = BiLSTMSummarizer.infer_attention_flags_from_state_dict(
+        state_dict,
+        hidden_size=config.model.hidden_size,
+        bidirectional=bidirectional,
+    )
     model = BiLSTMSummarizer(
-        input_dim=config.model.input_dim,
+        input_dim=model_input_dim,
         hidden_size=config.model.hidden_size,
         num_layers=config.model.num_layers,
         dropout=config.model.dropout,
-        bidirectional=getattr(config.model, "bidirectional", True),
-        use_attention=getattr(config.model, "use_attention", True),
+        bidirectional=bidirectional,
+        use_attention=use_attention,
+        fuse_attention_context=fuse_attention,
     )
-    ckpt = torch.load(args.checkpoint, map_location="cpu")
-    model.load_state_dict(ckpt["model_state_dict"])
+    model.load_state_dict(state_dict)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     pipeline = InferencePipeline(
