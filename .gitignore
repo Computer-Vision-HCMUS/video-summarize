@@ -45,6 +45,8 @@ data/tvsum/
 *.mat
 checkpoints/*.pt
 !checkpoints/.gitkeep
+checkpoints-optimize/*.pt
+!checkpoints-optimize/.gitkeep
 logs/*.log
 logs/*.txt
 !logs/.gitkeep
