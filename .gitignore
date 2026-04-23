@@ -43,10 +43,13 @@ data/datasets/
 data/summe/
 data/tvsum/
 *.mat
+# Tất cả checkpoint PyTorch (root + ablation_runs/ + ablation_*.pt)
 checkpoints/*.pt
-!checkpoints/.gitkeep
+checkpoints/**/*.pt
+!checkpoints/**/.gitkeep
 checkpoints-optimize/*.pt
-!checkpoints-optimize/.gitkeep
+checkpoints-optimize/**/*.pt
+!checkpoints-optimize/**/.gitkeep
 logs/*.log
 logs/*.txt
 !logs/.gitkeep
